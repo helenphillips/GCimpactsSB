@@ -23,9 +23,13 @@ neededCols <- c("ID","Case_ID","CaseDescription", "System" ,
 
 dat <- dat[,which(names(dat) %in% neededCols)]
 
+dat$FragmentationDesign <- as.factor(dat$FragmentationDesign)
+dat$Measurement <- as.factor(dat$Measurement)
 ### REMOVE ROWS WITH NO ERRORS -----------------
 
 dat <- dat[!(is.na(dat$Control_SD)),]
+
+dat <- droplevels(dat)
 
 ###### CONVERSION OF ERROR -----------------------
 # Should all be SDs
@@ -64,6 +68,9 @@ frag_dat<-
 
 hist(frag_dat$LRR)
 hist(frag_dat$LRR_var)
+
+
+
 
 
 
@@ -138,6 +145,21 @@ p <- ggplot(fg1, aes(x=Design, y=y, ymin=ci_l, ymax=ci_h))+
 p
 dev.off()
 
+## PREDICT FUNCTION #####
+
+# have to specify the contrasts
+# https://stat.ethz.ch/pipermail/r-help/2011-September/289312.html
+
+cols <- viridis(5)
+cols2 <- rep(cols, each  = 4)
+
+pchs2 <- rep(c(19, 21, 24, 25), times = 5)
+
+
+metafor_PlotAllCovs(mod = mod.1, dat = frag_dat, covariate1 ="FragmentationDesign", 
+                    covariate2 = "Measurement", col1 =cols2, pch1 = pchs2)
+  
+
 
 ## MCMCGLMM approach?? # https://ourcodingclub.github.io/tutorials/mcmcglmm/
 # This paper suggested bayesian for data with outliers
@@ -177,3 +199,56 @@ points(xsim, I(1/frag_dat$LRR_var), col = "red") # here you can plot the data fr
 # Not bad?
 summary(mcmc.mod2)
 traceplot(mcmc(mcmc.mod2$Sol))
+
+
+
+
+### JUST ABUNDANCE DATA
+
+abund_frag <- frag_dat[which(frag_dat$Measurement == "Abundance"),]
+
+abund_frag <- droplevels(abund_frag)
+table(abund_frag$FragmentationDesign)
+
+
+abund.mod <-rma.mv(
+  yi=LRR,
+  V=LRR_var, 
+  mods=~FragmentationDesign -1,
+  random= ~1|ID,
+  struct="CS",
+  method="ML",
+  digits=4,
+  data=abund_frag)
+
+summary(abund.mod)
+
+y<-summary(abund.mod)$b
+ci_l<-summary(abund.mod)$ci.lb
+ci_h<-summary(abund.mod)$ci.ub
+
+fg1<-data.frame(cbind(y,ci_l,ci_h))
+colnames(fg1)[1]<-"y"
+colnames(fg1)[2]<-"ci_l"
+colnames(fg1)[3]<-"ci_h"
+fg1$type<-c("Corridors/Connectivity", "Edge effects", "Habitat amount", "Isolation" )
+fg1$type<-as.factor(fg1$type)
+
+jpeg(filename = "frag_carleton.jpeg", quality = 100, res = 300, width = 3500, height = 2000)
+
+p <- ggplot(fg1, aes(x=type, y=y, ymin=ci_l, ymax=ci_h))+
+  geom_point(aes(size = 1)) +
+  geom_pointrange()+
+  geom_hline(yintercept = 0, linetype=2)+
+  coord_flip()+
+  theme_bw() +
+  theme(axis.text=element_text(size=16, face = "bold"),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(colour = "black"))+
+  xlab('') +
+  ylab ('Effect Size')
+p
+
+dev.off()
