@@ -1,49 +1,70 @@
 ## SetWD
 
 ## LIBRARIES -----------------------------------------------
-library(googlesheets) # for getting data from Gdrive
-library(gtools) # for merging dataframes
 
+setwd("~/WORK/GCimpactsSB")
 
+### LOAD LIBRARIES ------------------------
 
-## CREATE FOLDERS ------------------------------------------------------
-# One data folder
-if(!dir.exists("Data")){
-  dir.create("Data")
+library(ggplot2)
+library(metafor)
+library(gtools)
+
+### FUNCTIONS -------
+
+cleandata <- function(dat, IDCol){
+  
+  id <- which(names(dat) == IDCol)
+  
+  
+  #remove blank rows
+  dat <- dat[which(!(is.na(dat[,id]))),]
+  dat <- dat[rowSums(is.na(dat)) != ncol(dat),]
+  
+  # remove blank columns
+  dat[,grep("^X", names(dat))] <- NULL
+  
+  # Make sure the ID col is called 'ID'
+  if(IDCol != "ID"){names(dat)[id] <- "ID"}
+  return(dat)
 }
-data_folder <- "Data"
-
-# Data folders within it
-n_Scripts <- 9 ## How many scripts are there
-
-for(i in 1:n_Scripts){
-  n <- (paste0("0", i, "_Data"))
-  dir.create(file.path(data_folder, n))
-}
 
 
-## GET DATASETS ---------------------------------------------------------
-##pull from the google
-x <- gs_ls() ## Authentication
-# gs_token <- gs_auth(cache = FALSE)
-
-## Full text screening
-fulltextscreening <- "Full Text Screening"
-fts <- gs_title(fulltextscreening)
-fts <- as.data.frame(gs_read(fts, ws = "Sheet1"))
 
 
-## Metadata
-dataEx <- "DataExtractionTable"
-dataEx <- gs_title(dataEx)
+### LOAD DATA -----------------------------
 
-metaData <- as.data.frame(gs_read(dataEx, ws = "Metadata"))
-pollution <- as.data.frame(gs_read(dataEx, ws = "Pollution")) 
-climate <- as.data.frame(gs_read(dataEx, ws = "ClimateChange")) 
-LUI <- as.data.frame(gs_read(dataEx, ws = "LandUseIntensification")) 
-HabitatLoss <- as.data.frame(gs_read(dataEx, ws = "HabitatLoss")) 
-Invasives <- as.data.frame(gs_read(dataEx, ws = "Invasives")) 
-NutrientEnrichment <- as.data.frame(gs_read(dataEx, ws = "NutrientEnrichment")) 
+dataDir <- "Data/September2021"
+
+
+
+
+## Metadata files first
+meta <- read.csv(file.path(dataDir, "metadata.csv"))
+meta <- cleandata(dat = meta, IDCol = "ID")
+
+length(unique(meta$ID)) == nrow(meta)
+
+
+## Main data files
+frag <- read.csv(file.path(dataDir, "fragmentation.csv"))
+frag <- cleandata(dat = frag, IDCol = "ID") # 117
+
+climate <- read.csv(file.path(dataDir, "climatechange.csv"))
+climate <- cleandata(dat = climate, IDCol = "ID") # 507
+
+dat_inv <- read.csv(file.path(dataDir, "invasives.csv"))
+invasives <- cleandata(dat = dat_inv, IDCol = "ID") # 146
+
+lui <- read.csv(file.path(dataDir, "lui.csv"))
+lui <- cleandata(dat = lui, IDCol = "ID") # 801
+
+nutrient <- read.csv(file.path(dataDir, "nutrient.csv"))
+nutrient <- cleandata(dat = nutrient, IDCol = "ID") # 659
+
+dat_poll <- read.csv(file.path(dataDir, "pollution.csv"))
+pollution <- cleandata(dat = dat_poll, IDCol = "ID") # 939
+
 
 ## RENAME SOME COLUMNS ----------------------------------------------
 
@@ -55,70 +76,73 @@ names(climate)[which(names(climate) == "Varied")] <- "ChangeType"
 names(climate)[which(names(climate) == "Delta_Value")] <- "Delta_TreatmentChange"
 
 
-names(LUI)[which(names(LUI) == "Intensification_Var")] <- "GCDType"
-names(LUI)[which(names(LUI) == "Varied")] <- "ChangeType"
+names(lui)[which(names(lui) == "Intensification_Var")] <- "GCDType"
+names(lui)[which(names(lui) == "Varied")] <- "ChangeType"
 
-names(HabitatLoss)[which(names(HabitatLoss) == "FragmentationDesign")] <- "GCDType"
+names(frag)[which(names(frag) == "FragmentationDesign")] <- "GCDType"
 # names(HabitatLoss)[which(names(HabitatLoss) == "PollutantClass")] <- "ChangeType"
 
-names(Invasives)[which(names(Invasives) == "InvasiveSpecies")] <- "GCDType"
+names(invasives)[which(names(invasives) == "InvasiveSpecies")] <- "GCDType"
 # names(Invasives)[which(names(Invasives) == "PollutantClass")] <- "ChangeType"
-names(Invasives)[which(names(Invasives) == "SpeciesName")] <- "InvasiveSpeciesName"
+names(invasives)[which(names(invasives) == "SpeciesName")] <- "InvasiveSpeciesName"
 
 
-
-
-names(NutrientEnrichment)[which(names(NutrientEnrichment) == "Type")] <- "GCDType"
-names(NutrientEnrichment)[which(names(NutrientEnrichment) == "EnrichmentType")] <- "ChangeType"
+names(nutrient)[which(names(nutrient) == "EnrichmentType")] <- "GCDType"
+names(nutrient)[which(names(nutrient) == "Type")] <- "ChangeType"
 
 
 pollution$driver <- "Pollution"
 climate$driver <- "Climate" 
-LUI$driver <- "LUI"
-HabitatLoss$driver <- "HabitatLoss" 
-Invasives$driver <- "Invasives"
-NutrientEnrichment$driver <- "NutrientEnrichment" 
+lui$driver <- "LUI"
+frag$driver <- "HabitatLoss" 
+invasives$driver <- "Invasives"
+nutrient$driver <- "NutrientEnrichment" 
 
 
 ## MERGE DATA SETS -----------------------------------------------------
 
 ## full text
-keep <- c("NameOfPDF","PaperID","DOI", "Screener","Extractor",
-          "DataExtracted","Extraction-Suitable","ExtractionComments",
-          "Method","ExperimentObservation")
+fts <-  read.csv(file.path(dataDir, "Full Text Screening - Sheet1.csv"))
+keep <- c("NameOfPDF","PaperID","DOI") #, "Screener","Extractor",
+           # "DataExtracted","Extraction-Suitable","ExtractionComments",
+           #"Method","ExperimentObservation")
 fts <- fts[,names(fts) %in% keep]
 
 
 
 ## metadata
 keep <- c("ID","Author", # "Title","Year",
-          "CodingFinished", "Country",
-          "Season(s)","SpatialExtent(km2)", "Sampled_Soil_Available_notpH", "FullyFactorial")                             
+          # "CodingFinished",
+          "Country",
+          "Season(s)","SpatialExtent(km2)", "Sampled_Soil_Available_notpH") #, "FullyFactorial")                             
 
-metaData <- metaData[,names(metaData) %in% keep]
+meta <- meta[,names(meta) %in% keep]
 
-allMD <- merge(metaData, fts, by.x = "ID", by.y = "PaperID")
+allMD <- merge(meta, fts, by.x = "ID", by.y = "PaperID", all.x = TRUE)
 
 
-colOrder <- c("ID", "NameOfPDF", "Author", "DOI" , "CodingFinished", "Screener", "Extractor",
-              "DataExtracted", "Extraction-Suitable", "ExtractionComments",
-              "Sampled_Soil_Available_notpH", "FullyFactorial", "SpatialExtent(km2)",
-              "Country", "Season(s)", "ExperimentObservation" , "Method")
-                     
-allMD <- allMD[,colOrder]
+# colOrder <- c("ID", "NameOfPDF", "Author", "DOI" , "CodingFinished", "Screener", "Extractor",
+#               "DataExtracted", "Extraction-Suitable", "ExtractionComments",
+#               "Sampled_Soil_Available_notpH", "FullyFactorial", "SpatialExtent(km2)",
+#               "Country", "Season(s)", "ExperimentObservation" , "Method")
+#                      
+# allMD <- allMD[,colOrder]
 
 
 ## The merge
-dat <- smartbind(pollution, climate, LUI, HabitatLoss, Invasives, NutrientEnrichment)
+dat <- smartbind(pollution, climate, lui, frag, invasives, nutrient)
 
 ## Bind with AllMd
 
-toKeep <- unique(dat$ID)
-allMD <- allMD[!(is.na(allMD$ID)),]
-allMD <- allMD[allMD$ID %in% toKeep,]
+#toKeep <- unique(dat$ID)
+#allMD <- allMD[!(is.na(allMD$ID)),]
+#allMD <- allMD[allMD$ID %in% toKeep,]
+#dat <- merge(allMD, dat, by = "ID", all.y = TRUE)
 
 
-dat <- merge(allMD, dat, by = "ID", all.y = TRUE)
+write.csv(allMD, file = file.path(dataDir, "processed", "metadata.csv"), row.names = FALSE)
+write.csv(dat, file = file.path(dataDir, "processed", "alldata.csv"), row.names = FALSE)
+
 
 ## TODO:
 # Script that ensures all columns are the right class

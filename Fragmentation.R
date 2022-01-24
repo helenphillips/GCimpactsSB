@@ -6,6 +6,8 @@ setwd("~/WORK/GCimpactsSB")
 library(ggplot2)
 library(metafor)
 
+source("modelPlots.R")
+
 ### LOAD DATA -----------------------------
 
 dat <- read.csv("Data/DataExtractionTable - HabitatLoss.csv")
@@ -80,6 +82,27 @@ mod.1<-rma.mv(
   yi=LRR,
   V=LRR_var, 
   mods=~FragmentationDesign + Measurement,
+  random= ~1|ID,
+  struct="CS",
+  method="ML",
+  digits=4,
+  data=frag_dat)
+
+
+
+
+metafor_PlotAllCovs(mod =mod.1, dat = frag_dat, covariate1 = "FragmentationDesign", covariate2 = "Measurement", col1 ='black', pch1 = 19, pchcex = 1,
+                                givenLabels = TRUE, newlabels, GreyMissing = TRUE, removeMissing = FALSE)
+
+
+
+frag_dat$contVar <- rnorm(nrow(frag_dat))
+
+
+mod.cont<-rma.mv(
+  yi=LRR,
+  V=LRR_var, 
+  mods=~ contVar + FragmentationDesign + Measurement ,
   random= ~1|ID,
   struct="CS",
   method="ML",
