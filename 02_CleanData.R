@@ -1,11 +1,12 @@
 ## Clean the data
 
-setwd("~/WORK/GCimpactsSB")
+# setwd("~/WORK/GCimpactsSB")
+setwd("C:/Users/helenp/WORK/GCimpactsSB")
 
 
 
 ## LOAD THE DATA
-dataDir <- "Data/September2021"
+dataDir <- "Data/January2022"
 
 dat <- read.csv(file = file.path(dataDir, "processed", "alldata.csv"))
 
@@ -20,7 +21,24 @@ tokeep <- c("ID","Case_ID","CaseDescription",
 "Measurement","MeasurementUnits","Error",                  
 "Data_Source","driver")
 
-dat <- dat[,which(names(dat) %in% tokeep)] # 3138
+dat <- dat[,which(names(dat) %in% tokeep)] # 3138 # 3609
+
+
+
+###### CONVERSION OF COLUMN TYPES ----------------
+dat$Control_SD_2 <- as.numeric(dat$Control_SD)
+toquery <- which(is.na(dat$Control_SD_2) & !(is.na(dat$Control_SD)))
+dat[toquery,]
+
+dat$Treatment_SD_2 <- as.numeric(dat$Treatment_SD )
+toquery <- which(is.na(dat$Treatment_SD_2) & !(is.na(dat$Treatment_SD)))
+dat[toquery,]
+
+
+
+dat$Treatment_SD_2 <- dat$Control_SD_2 <- NULL
+dat$Control_SD <- as.numeric(dat$Control_SD)
+dat$Treatment_SD <- as.numeric(dat$Treatment_SD )
 
 
 ###### CONVERSION OF ERROR -----------------------
@@ -50,6 +68,11 @@ dat$Control_SD[ci] <- sqrt(dat$Control_N[ci]) * ((2 * dat$Control_SD[ci])/3.92)
 dat$Treatment_SD[ci] <- sqrt(dat$Treatment_N[ci]) * ((2 * dat$Treatment_SD[ci])/3.92)
 dat$Error[ci] <- "SD"
 
+ci <- which(dat$Error == "95CI")
+
+dat$Control_SD[ci] <- sqrt(dat$Control_N[ci]) * ((2 * dat$Control_SD[ci])/3.92)
+dat$Treatment_SD[ci] <- sqrt(dat$Treatment_N[ci]) * ((2 * dat$Treatment_SD[ci])/3.92)
+dat$Error[ci] <- "SD"
 
 ci <- which(dat$Error == "CI90")
 
@@ -71,6 +94,7 @@ dat$Error[cv] <- "SD"
 dat <- dat[-which(dat$Error == "DT"),]
 dat <- droplevels(dat)
 
+table(dat$Error)
 
 
 ## unknowns marked as SD (the largest error)
@@ -87,12 +111,31 @@ write.csv(dat, file = file.path(dataDir, "processed", "0_2_alldata.csv"), row.na
 ## 2) Clean values -------------------------------------------------------------
 
 # GlobalChangeType
+table(dat$GCDType)
+# tioo difficult to fix at this stage 
+dat$GCDType[which(dat$GCDType == "Organic versus conventional")] <-  "Organic versus Inorganic"
+dat$GCDType[which(dat$GCDType == "Organic vs. Conventional")] <-  "Organic versus Inorganic"
+
+dat$GCDType[which(dat$GCDType == "UVB-Radiation")] <-  "UVB Radiation"
+dat$GCDType[which(dat$GCDType == "UVB")] <-  "UVB Radiation"
+
+dat$GCDType[which(dat$GCDType == "Burning")] <-  "burning"
+
+dat$GCDType[which(dat$GCDType == "C")] <-  "Carbon"
+
 
 # ChangeType (amount/frequency/intensity)
 
 # BodySize
 
 # Taxonomic Group
+
+unique(dat$TaxaGroup[order(dat$TaxaGroup)])
+
+taxa <- read.csv(file.path("Data","January2022", "taxonomic classification.csv"))
+dat <- merge(dat, taxa, by.x = "TaxaGroup", by.y = "original_v2", all.x = TRUE)
+
+unique(dat$TaxaGroup[which(!(is.na(dat$TaxaGroup)) & is.na(dat$Harmonised))])
 
 # DiversityMetric
 
