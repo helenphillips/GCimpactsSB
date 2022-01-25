@@ -3,25 +3,26 @@
 
 library(metafor)
 
-setwd("~/WORK/GCimpactsSB")
+# setwd("~/WORK/GCimpactsSB")
+setwd("C:/Users/helenp/WORK/GCimpactsSB")
 
 ## LOAD THE DATA
-dataDir <- "Data/September2021"
+dataDir <- "Data/January2022"
 
 DataCleaned <- read.csv(file.path(dataDir, "processed", "0_2_alldata.csv"), header = TRUE) # load the cleaned data (Change the name)
 
 ### Split to abundance and richness
 table(DataCleaned$Measurement)
 
-abundance <- DataCleaned[which(DataCleaned$Measurement == "Abundance"),] # 2024
+abundance <- DataCleaned[which(DataCleaned$Measurement == "Abundance"),] # 2024 # 2395
 
 # Sometimes zeros were missing that should actually be zeros
 abundance$Control_SD[which(abundance$Control_mean == 0 & is.na(abundance$Control_SD))] <- 0
 abundance$Treatment_SD[which(abundance$Treatment_mean == 0 & is.na(abundance$Treatment_SD))] <- 0
 
 # there are some climate cases that have no SDs
-abundance <- abundance[which(!(is.na(abundance$Control_SD))),]
-abundance <- abundance[which(!(is.na(abundance$Treatment_SD))),]
+abundance <- abundance[which(!(is.na(abundance$Control_SD))),] 
+abundance <- abundance[which(!(is.na(abundance$Treatment_SD))),] # 2378
 
 
 ## There's studies that rounded their SD's so that they were zero
@@ -44,11 +45,14 @@ EffectSizes <- escalc(measure = "ROM", # log response ratio ("ROM" in metafor)
                  data = abundance)
 
 
+## get a warning message here that I should deal with
+
+
 
 # we now have the log response ratio for each case
-summary(EffectSizes$yi)
+summary(EffectSizes$yi) # 221 NAs
 # with their variance
-summary(EffectSizes$vi)
+summary(EffectSizes$vi) # 224 Nas
 
 # Rename Effect sizes
 EffectSizes$LRR <- EffectSizes$yi
@@ -57,8 +61,9 @@ EffectSizes$VarLRR <- EffectSizes$vi
 
 ## What have the high varLRR
 
-EffectSizes[which(EffectSizes$VarLRR > 50),]
+EffectSizes[which(EffectSizes$VarLRR > 10),]
 
+# TODO: check these again
 
 
 ## MISSING EFFECT SIZES (BECAUSE OF LEGIT ZEROS)
@@ -92,9 +97,56 @@ mod.1<-rma.mv(
   yi=LRR,
   V=VarLRR, 
   mods=~driver,
-  random= ~1|ID/UniqueID,
+  random= ~1|ID,
   struct="CS",
   method="ML",
   digits=4,
   data=EffectSizes)
 
+qqnorm(residuals(mod.1,type="pearson"),main="QQ plot: residuals")
+qqline(residuals(mod.1,type="pearson"),col="red")
+
+
+
+
+y<-summary(mod.1)$b
+ci_l<-summary(mod.1)$ci.lb
+ci_h<-summary(mod.1)$ci.ub
+
+fg1<-data.frame(cbind(y,ci_l,ci_h))
+colnames(fg1)[1]<-"y"
+colnames(fg1)[2]<-"ci_l"
+colnames(fg1)[3]<-"ci_h"
+fg1$GCD<-c("Climate change","Fragmentation", "Invasive species",
+           "LUI", "Nutrient enrichment", "Pollution")
+fg1$GCD<-as.factor(fg1$GCD)
+
+
+p <- ggplot(fg1, aes(x=GCD, y=y, ymin=ci_l, ymax=ci_h))+
+  geom_point(aes(size = 1)) +
+  geom_pointrange()+
+  geom_hline(yintercept = 0, linetype=2)+
+  coord_flip()+
+  theme_bw() +
+  theme(axis.text=element_text(size=16, face = "bold"),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(colour = "black"))+
+  xlab('') +
+  ylab ('Effect Size')
+p
+
+
+
+test <- EffectSizes[-(which(EffectSizes$VarLRR > 10)),]
+
+mod.test<-rma.mv(
+  yi=LRR,
+  V=VarLRR, 
+  mods=~driver,
+  random= ~1|ID,
+  struct="CS",
+  method="ML",
+  digits=4,
+  data=test)
