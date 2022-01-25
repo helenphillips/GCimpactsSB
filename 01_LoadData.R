@@ -2,7 +2,8 @@
 
 ## LIBRARIES -----------------------------------------------
 
-setwd("~/WORK/GCimpactsSB")
+# setwd("~/WORK/GCimpactsSB")
+setwd("C:/Users/helenp/WORK/GCimpactsSB")
 
 ### LOAD LIBRARIES ------------------------
 
@@ -34,7 +35,7 @@ cleandata <- function(dat, IDCol){
 
 ### LOAD DATA -----------------------------
 
-dataDir <- "Data/September2021"
+dataDir <- "Data/January2022"
 
 
 
@@ -43,27 +44,27 @@ dataDir <- "Data/September2021"
 meta <- read.csv(file.path(dataDir, "metadata.csv"))
 meta <- cleandata(dat = meta, IDCol = "ID")
 
-length(unique(meta$ID)) == nrow(meta)
+length(unique(meta$ID)) == nrow(meta) # true
 
 
 ## Main data files
 frag <- read.csv(file.path(dataDir, "fragmentation.csv"))
-frag <- cleandata(dat = frag, IDCol = "ID") # 117
+frag <- cleandata(dat = frag, IDCol = "ID") # 117 # now only 111, where did they go? 
 
 climate <- read.csv(file.path(dataDir, "climatechange.csv"))
-climate <- cleandata(dat = climate, IDCol = "ID") # 507
+climate <- cleandata(dat = climate, IDCol = "ID") # 507 # now 504, where did they go?
 
 dat_inv <- read.csv(file.path(dataDir, "invasives.csv"))
-invasives <- cleandata(dat = dat_inv, IDCol = "ID") # 146
+invasives <- cleandata(dat = dat_inv, IDCol = "ID") # 146 # 188 now
 
 lui <- read.csv(file.path(dataDir, "lui.csv"))
-lui <- cleandata(dat = lui, IDCol = "ID") # 801
+lui <- cleandata(dat = lui, IDCol = "ID") # 801 # 991
 
 nutrient <- read.csv(file.path(dataDir, "nutrient.csv"))
-nutrient <- cleandata(dat = nutrient, IDCol = "ID") # 659
+nutrient <- cleandata(dat = nutrient, IDCol = "ID") # 659 # 889
 
 dat_poll <- read.csv(file.path(dataDir, "pollution.csv"))
-pollution <- cleandata(dat = dat_poll, IDCol = "ID") # 939
+pollution <- cleandata(dat = dat_poll, IDCol = "ID") # 939 #926 , where did they go?
 
 
 ## RENAME SOME COLUMNS ----------------------------------------------
@@ -112,21 +113,15 @@ fts <- fts[,names(fts) %in% keep]
 
 ## metadata
 keep <- c("ID","Author", # "Title","Year",
-          # "CodingFinished",
+          # "CodingFinished", "Checked_fullyfactorial",
           "Country",
-          "Season(s)","SpatialExtent(km2)", "Sampled_Soil_Available_notpH") #, "FullyFactorial")                             
+          "Season.s.","SpatialExtent.km2.", "Sampled_Soil_Available_notpH") #, "FullyFactorial")                             
 
 meta <- meta[,names(meta) %in% keep]
 
-allMD <- merge(meta, fts, by.x = "ID", by.y = "PaperID", all.x = TRUE)
+allMD <- merge(meta, fts, by.x = "ID", by.y = "PaperID", all.x = TRUE) #600
 
 
-# colOrder <- c("ID", "NameOfPDF", "Author", "DOI" , "CodingFinished", "Screener", "Extractor",
-#               "DataExtracted", "Extraction-Suitable", "ExtractionComments",
-#               "Sampled_Soil_Available_notpH", "FullyFactorial", "SpatialExtent(km2)",
-#               "Country", "Season(s)", "ExperimentObservation" , "Method")
-#                      
-# allMD <- allMD[,colOrder]
 
 
 ## The merge
