@@ -45,7 +45,7 @@ nrow(abundance[which(abundance$Treatment_mean  == 0),]) # 159
 nrow(abundance[which(abundance$Treatment_SD  == 0),]) # 179
 table(abundance$driver[which(abundance$Treatment_SD   == 0)]) # Mainly lui,  nutrient enrichment and pollution
 
-
+SMD
 
 EffectSizes <- escalc(measure = "ROM", # log response ratio ("ROM" in metafor)
                  m2i = Control_mean, # group 2 corresponds to the control group
@@ -57,9 +57,18 @@ EffectSizes <- escalc(measure = "ROM", # log response ratio ("ROM" in metafor)
                  data = abundance)
 
 
+
+hedges <- escalc(measure = "SMD", # log response ratio ("ROM" in metafor)
+                      m2i = Control_mean, # group 2 corresponds to the control group
+                      sd2i = Control_SD,
+                      n2i = Control_N,
+                      m1i = Treatment_mean, # group 1 is the treatment group
+                      sd1i = Treatment_SD,
+                      n1i = Treatment_N,
+                      data = abundance)
 ## get a warning message here because of the zeros, which gets dealt with shortly
 
-
+hedges <- hedges[which(!(is.na(hedges$yi))),]
 
 # we now have the log response ratio for each case
 summary(EffectSizes$yi) # 221 NAs
@@ -174,3 +183,60 @@ p
 
 
 
+
+
+hedges$UniqueID <- paste(hedges$ID, hedges$Case_ID, hedges$driver)
+
+
+mod.1<-rma.mv(
+  yi=yi,
+  V=vi, 
+  mods=~driver-1,
+  random= ~1|ID/UniqueID,
+  struct="CS",
+  method="ML",
+  digits=4,
+  data=hedges )
+
+qqnorm(residuals(mod.1,type="pearson"),main="QQ plot: residuals")
+qqline(residuals(mod.1,type="pearson"),col="red")
+
+
+## Coloured qq plot https://stackoverflow.com/questions/42678858/q-q-plot-with-ggplot2stat-qq-colours-single-group
+library(broom) ## for augment()
+dda <- cbind(augment(mod.1),f=hedges$driver)
+dda = cbind(dda, setNames(qqnorm(dda$.resid, plot.it=FALSE), c("Theoretical", "Sample")))
+
+ggplot(dda) + 
+  geom_point(aes(x=Theoretical, y=Sample, colour=f))
+
+
+
+
+y<-summary(mod.1)$b
+ci_l<-summary(mod.1)$ci.lb
+ci_h<-summary(mod.1)$ci.ub
+
+fg1<-data.frame(cbind(y,ci_l,ci_h))
+colnames(fg1)[1]<-"y"
+colnames(fg1)[2]<-"ci_l"
+colnames(fg1)[3]<-"ci_h"
+fg1$GCD<-c("Climate change","Fragmentation", "Invasive species",
+           "LUI", "Nutrient enrichment", "Pollution")
+fg1$GCD<-as.factor(fg1$GCD)
+
+
+p <- ggplot(fg1, aes(x=GCD, y=y, ymin=ci_l, ymax=ci_h))+
+  geom_point(aes(size = 1)) +
+  geom_pointrange()+
+  geom_hline(yintercept = 0, linetype=2)+
+  coord_flip()+
+  theme_bw() +
+  theme(axis.text=element_text(size=16, face = "bold"),
+        panel.grid.major = element_blank(), 
+        panel.grid.minor = element_blank(),
+        panel.border = element_blank(),
+        axis.line = element_line(colour = "black"))+
+  xlab('') +
+  ylab ('Effect Size')
+p
