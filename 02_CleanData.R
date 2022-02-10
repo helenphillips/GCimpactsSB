@@ -6,7 +6,7 @@ setwd("C:/Users/helenp/WORK/GCimpactsSB")
 
 
 ## LOAD THE DATA
-dataDir <- "Data/January2022"
+dataDir <- "Data/February2022"
 
 dat <- read.csv(file = file.path(dataDir, "processed", "alldata.csv"))
 
@@ -105,7 +105,6 @@ dat$Error[others] <- "SD"
 ## Keep blank if no SDs
 dat$Error[which(is.na(dat$Treatment_SD))] <- NA
 
-write.csv(dat, file = file.path(dataDir, "processed", "0_2_alldata.csv"), row.names = FALSE)
 
 
 ## 2) Clean values -------------------------------------------------------------
@@ -119,48 +118,96 @@ dat$GCDType[which(dat$GCDType == "Organic vs. Conventional")] <-  "Organic versu
 dat$GCDType[which(dat$GCDType == "UVB-Radiation")] <-  "UVB Radiation"
 dat$GCDType[which(dat$GCDType == "UVB")] <-  "UVB Radiation"
 
-dat$GCDType[which(dat$GCDType == "Burning")] <-  "burning"
+dat$GCDType[which(dat$GCDType == "Burning")] <-  "Fire"
+dat$GCDType[which(dat$GCDType == "burning")] <-  "Fire"
 
-dat$GCDType[which(dat$GCDType == "C")] <-  "Carbon"
+
+## Move all Fire to LUI
+dat$driver[which(dat$GCDType == "Fire")] <-  "LUI"
 
 
-# ChangeType (amount/frequency/intensity)
-
-# BodySize
-
-# Taxonomic Group
+# BodySize and Taxonomic Group
 
 unique(dat$TaxaGroup[order(dat$TaxaGroup)])
 
-taxa <- read.csv(file.path("Data","January2022", "taxonomic classification.csv"))
+taxa <- read.csv(file.path("Data","February2022", "taxonomic classification - version 3.csv"))
 dat <- merge(dat, taxa, by.x = "TaxaGroup", by.y = "original_v2", all.x = TRUE)
 
 unique(dat$TaxaGroup[which(!(is.na(dat$TaxaGroup)) & is.na(dat$Harmonised))])
 
+dat[which(dat$TaxaGroup == "staphylinidae"),'Harmonised'] <- 'Rove beetle'
+dat[which(dat$TaxaGroup == "staphylinidae"),'GSBA'] <- 'Coleoptera'
+dat[which(dat$TaxaGroup == "staphylinidae"), 'Body.Size'] <- 'Macro-fauna'
+
+
+dat[which(dat$TaxaGroup == "Enchytraeids "),'Harmonised'] <- 'Enchytraeids'
+dat[which(dat$TaxaGroup == "Enchytraeids "),'GSBA'] <- 'Enchytraeids'
+dat[which(dat$TaxaGroup == "Enchytraeids "), 'Body.Size'] <- 'Meso-fauna'
+
+dat[which(dat$TaxaGroup == "Geophilida"),'Harmonised'] <- 'Chilopoda'
+dat[which(dat$TaxaGroup == "Geophilida"),'GSBA'] <- 'Myriapoda'
+dat[which(dat$TaxaGroup == "Geophilida"), 'Body.Size'] <- 'Macro-fauna'
+
+
+
+## Add in body size when it is elsewhere
+
+
+dat$Body.Size[which(!(is.na(dat$TaxaBodysize )) & is.na(dat$Body.Size))] <- dat$TaxaBodysize[which(!(is.na(dat$TaxaBodysize )) & is.na(dat$Body.Size))]
+
+
+
+## Fix the column\
+table(dat$Body.Size)
+
+dat$Body.Size[which(dat$Body.Size %in% c("Macro-arthropod predators", "Macro-arthropod", "Macroarthropods"))] <-  "Macro-arthropods"
+dat$Body.Size[which(dat$Body.Size %in% c("Microfauna"))] <-  "Micro-fauna"
+
+dat$Body.Size[which(dat$Body.Size %in% c("Macrofauna"))] <-  "Macro-fauna"
+dat$Body.Size[which(dat$Body.Size %in% c("Macroinvertebrates"))] <-  "Macro-invertebrates"
+dat$Body.Size[which(dat$Body.Size %in% c("Mesofauna"))] <-  "Meso-fauna"
+
+dat$Body.Size[which(dat$Body.Size %in% c("Meso and Macrofauna"))] <-  "Invertebrates (all sizes)"
+
+
 # DiversityMetric
 
-# System
 
-# Location
-
-# StudyType
+table(dat$Measurement)
 
 
-# Study
+dat$Measurement[which(dat$Measurement %in% c("FamilyRichness"    ,  
+"GeneraRichness"           ,
+"GenusRichness"         ,
+"GroupRichness"      ,          
+"Margalef" ,
+"Margalef Richness index",
+"MargalefRichness" ,               
+"Richness"           ,      
+"Species/Genus Richness",
+"SpeciesRichness" ,
+"TaxaRichness"    ,      
+"Taxon richness",
+"TaxonRichness"))] <- "Richness" # 325
 
-# Case
 
 
-## 2) Harmonizing the units-----------------------------------------------
-
-# Abundance
-
-# Richness
-
-# Create mean soil pH
-
-# Global Change Intensity (absolute values)
 
 
+
+dat$Measurement[which(dat$Measurement %in% c("Eveness"))] <- "Evenness"
+       
+                                             
+dat$Measurement[which(dat$Measurement %in% c("Shannon Equitability"))] <- "Shannon"
+                                                                                          
+
+dat$Measurement[which(dat$Measurement %in% c("Simpson Equitability",  
+                                             "Simpsons"))] <- "Simpson"
+                                             
+
+
+
+## SAVING --------
+write.csv(dat, file = file.path(dataDir, "processed", "0_2_alldata.csv"), row.names = FALSE)
 
 

@@ -35,7 +35,7 @@ cleandata <- function(dat, IDCol){
 
 ### LOAD DATA -----------------------------
 
-dataDir <- "Data/January2022"
+dataDir <- "Data/February2022"
 
 
 
@@ -88,8 +88,8 @@ names(invasives)[which(names(invasives) == "InvasiveSpecies")] <- "GCDType"
 names(invasives)[which(names(invasives) == "SpeciesName")] <- "InvasiveSpeciesName"
 
 
-names(nutrient)[which(names(nutrient) == "EnrichmentType")] <- "GCDType"
-names(nutrient)[which(names(nutrient) == "Type")] <- "ChangeType"
+# names(nutrient)[which(names(nutrient) == "EnrichmentType")] <- "GCDType"
+names(nutrient)[which(names(nutrient) == "Type")] <- "GCDType"
 
 
 pollution$driver <- "Pollution"
@@ -139,8 +139,3 @@ write.csv(allMD, file = file.path(dataDir, "processed", "metadata.csv"), row.nam
 write.csv(dat, file = file.path(dataDir, "processed", "alldata.csv"), row.names = FALSE)
 
 
-## TODO:
-# Script that ensures all columns are the right class
-# Order of the columns
-# enrichment - types need to be classified as organic or inorganic
-# taxa groups need to be classified by body size
