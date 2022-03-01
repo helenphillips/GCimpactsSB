@@ -1,0 +1,545 @@
+---
+title: "GCD MetaAnalysis Results"
+author: "Helen Phillips"
+date: "2/14/2022"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+setwd("C:/Users/helenp/WORK/GCimpactsSB")
+
+
+
+library(metafor)
+library(ggplot2)
+library(dplyr)
+library(maptools)
+library(ggmap)
+library(rnaturalearth)
+library(countrycode)
+library(viridis)
+
+# devtools::install_github("MathiasHarrer/dmetar")
+library(dmetar) # For 3-level I^2
+
+allDat <- read.csv("Data/03_Data/HedgesData_cleaned.csv")
+meta <- read.csv("Data/February2022/processed/metadata.csv")
+
+```
+
+
+
+# Exploratoration of the data
+
+
+```{r data0, echo = FALSE}
+
+
+meta$Country[which(meta$Country == "Czech Rpublic" | meta$Country == "Czechia"  )] <- "Czech Republic"
+
+
+meta$Country[which(meta$Country == "England" 
+                      | meta$Country == "Northern Ireland"
+                      | meta$Country == "Scotland"
+                      | meta$Country == "the UK"
+                      | meta$Country == "United Kingdom"
+                      | meta$Country == "Wales")] <- "UK"
+
+meta$Country[which(meta$Country == "United States" 
+                   | meta$Country == "United States - Hawaii"
+                      | meta$Country == "the US")] <- "USA"
+
+meta$Country[which(meta$Country == "The Netherlands")] <- "Netherlands"
+meta$Country[which(meta$Country == "Neherlands")] <- "Netherlands"
+
+meta$Country[grep("Ivoire", meta$Country)] <- "Ivory Coast"
+
+meta$Country[which(meta$Country == "CÃ´teÂ d'Ivoire")] <- "Ivory Coast"
+meta$Country[which(meta$Country == "Falkland Islands/Antarctica")] <- "Falkland Islands"
+
+
+meta <- meta[-which(meta$Country %in% c("Africa",
+"Brazil/Uruguay",
+"France and Italy"    ,                        
+"France, The Netherlands, Switzerland, Canada",
+"Ireland, Poland",
+"Netherlands, England, Portugal, Germany",
+"Portugal,Brazil"   ,
+"The Netherlands, UK" ,
+"UK, Netherlands, Denmark",
+"Sweden, UK, Czech Republic and Greece")),] # Some of these options don't exist though now
+
+meta <- meta[which(meta$Country != ""),]
+
+
+stud <- meta %>% 
+  group_by(Country) %>% 
+  summarize(no.stu = n())
+
+
+
+# harmonize country names
+stud <- stud %>%
+  mutate(iso =  countrycode(stud$Country, origin = "country.name", destination = "iso3c")) %>%
+  dplyr::group_by(iso) %>%
+  summarize(no.stud = sum(no.stu, na.rm = TRUE))
+
+
+wm <- ne_countries(scale = 110, returnclass = "sf") %>%
+  left_join(stud, by = c("adm0_a3" = "iso"))
+
+wm <- sf::st_transform(wm,"+proj=robin +lon_0=0 +x_0=0 +y_0=0 +ellps=WGS84 +datum=WGS84 +units=m +no_defs")
+
+mybreaks <- c(5, 25, 50, 75, 100)
+
+map <- ggplot(wm)+
+  geom_sf(aes(fill = (no.stud)))+
+  scale_fill_viridis(option = "viridis", 
+                     begin = 0,
+                     end = 1,
+                     na.value = "gray", breaks = mybreaks,
+                     name = "Number of\nstudies")+
+  theme_bw()+
+  theme(legend.position = c(0,0),
+        # legend.position = "left",
+        legend.justification = c(-0.2, -0.1),
+        legend.title = element_text(size=15),
+        legend.text = element_text(size=14))
+
+map
+
+
+
+# logged for fun
+
+mybreaks <- c(0, 1, 2, 3, 4, 5)
+
+wm$logStud <- log(wm$no.stud + 1)
+
+
+map <- ggplot(wm)+
+  geom_sf(aes(fill = (logStud)))+
+  scale_fill_viridis(option = "viridis", 
+                     begin = 0,
+                     end = 1,
+                     na.value = "gray", breaks = mybreaks,
+                     name = "ln-Number of\nstudies")+
+  theme_bw()+
+  theme(legend.position = c(0,0),
+        # legend.position = "left",
+        legend.justification = c(-0.2, -0.1),
+        legend.title = element_text(size=15),
+        legend.text = element_text(size=14))
+
+map
+
+
+
+```
+
+
+```{r data1, echo = FALSE}
+
+gcd <- data.frame(gcd = c("LUI", "Fragmentation", "Climate Change", "Pollution", "Nutrient \nEnrichment", "Invasive \nspecies"),
+                  total = c(877, 101, 445, 798, 789, 186))
+
+par(mar=c(6, 4, 1, 1))
+par(bg=NA)
+
+
+b <- barplot(gcd$total, space=0.1, ylab = "Number of cases", col = "seagreen")
+end_point = 0 + nrow(gcd) + nrow(gcd)-1 #this is the line which does the trick (together with barplot "space = 1" parameter)
+
+text(b[,1], par("usr")[3]-15, 
+     srt = 60, adj= c(1, 0.2), xpd = TRUE,
+     labels = gcd$gcd, cex=1)
+
+
+## Taxa groups
+
+taxa <- data.frame(gcd = c("All sizes", "Macro-fauna", "Meso-fauna", "Micro-arthropods", " Micro-fauna"),
+                  total = c(141, 1003, 1219, 94, 736))
+
+par(mar=c(6, 4, 1, 1))
+par(bg=NA)
+
+
+b <- barplot(taxa$total, space=0.1, ylab = "Number of cases")
+end_point = 0 + nrow(taxa) + nrow(taxa)-1 #this is the line which does the trick (together with barplot "space = 1" parameter)
+
+text(b[,1], par("usr")[3]-15, 
+     srt = 60, adj= c(1, 0.2), xpd = TRUE,
+     labels = taxa$gcd, cex=1)
+
+
+
+```
+
+For a lot/all of the analyses, I have been grouping micro-arthropods with meso-fauna.
+
+I have been including the 'All sizes' category, but now I am tempted to remove that data from the analyses. 
+
+
+
+```{r data2, echo = FALSE}
+
+
+table(allDat$driver, allDat$Body.Size)
+
+
+table(allDat$driver, allDat$Measurement)
+
+
+```
+I have removed from the dataset any measurement that didn't fall into these categories, such as evenness measurements, Simpsons, Functional Richness. However, the richness category include all types of richness, e.g., species richness, genus richness and taxa richness. 
+
+# Global Driver Model
+
+
+```{r mainModlod, include = FALSE}
+mod.2 <- readRDS(file = "Models/MainMod.rds")
+
+```
+
+```{r mainModres}
+summary(mod.2)
+```
+
+Intercept is Climate Change and Abundance.
+
+The Test of Moderators output shows that there is a significant difference between the subgroups.
+
+
+```{r mainmodi}
+
+i2 <- var.comp(mod.2)
+summary(i2)
+plot(i2)
+```
+
+In the output, we can see the percentage of total variance attributable to each of the three levels. The sampling error variance on level 1 is the smallest, making up only roughly 14%. The value of I^2_Level 2, the amount of heterogeneity variance *within* clusters, is higher, totaling roughly 37%. The largest share, however, falls to level 3. Between-cluster (here: between-study) heterogeneity makes up I^2_Level 3 =49% of the total variation in our data.
+
+Overall, this indicates that there is substantial between-study heterogeneity on the third level. Yet, we also see that a large proportion of the total variance, more than one third, can be explained by differences within studies.
+
+```{r mainModPlot, echo = FALSE}
+test <-predict(mod.2, newmods=rbind(c(0,0,0,0,0,0,0,0),
+                             c(0,0,0,0,0,1,0,0),
+                             c(0,0,0,0,0,0,1,0),
+                             c(0,0,0,0,0,0,0,1),  # climate with all different measurement types
+                             c(1,0,0,0,0,0,0,0),
+                             c(1,0,0,0,0,1,0,0),
+                             c(1,0,0,0,0,0,1,0),
+                             c(1,0,0,0,0,0,0,1),# habitat 
+                             c(0,1,0,0,0,0,0,0),
+                             c(0,1,0,0,0,1,0,0),
+                             c(0,1,0,0,0,0,1,0),
+                             c(0,1,0,0,0,0,0,1),  # invasive
+                             c(0,0,1,0,0,0,0,0),
+                             c(0,0,1,0,0,1,0,0),
+                             c(0,0,1,0,0,0,1,0),
+                             c(0,0,1,0,0,0,0,1),  # lui
+                             c(0,0,0,1,0,0,0,0),
+                             c(0,0,0,1,0,1,0,0),
+                             c(0,0,0,1,0,0,1,0),
+                             c(0,0,0,1,0,0,0,1), # nutrient
+                             c(0,0,0,0,1,0,0,0),
+                             c(0,0,0,0,1,1,0,0),
+                             c(0,0,0,0,1,0,1,0),
+                             c(0,0,0,0,1,0,0,1)# pollution
+                             ), addx=TRUE, digits=2) #
+
+slabs <- rep(c("abundance", "biomass", "richness", "shannon"), times = 6)
+par(mar=c(5, 8, 1, 1))
+forest(test$pred, sei=test$se, slab=slabs,  xlab="Effect Size", xlim=c(-.4,.7))
+abline(h=4.5, b=0, lty= 2)
+abline(h=8.5, b=0, lty= 2)
+abline(h=12.5, b=0, lty= 2)
+abline(h=16.5, b=0, lty= 2)
+abline(h=20.5, b=0, lty= 2)
+
+
+mtext("Climate", side = 2, line = 3, at = 22.5)
+mtext("Fragmentation", side = 2, line = 3, at = 18.5, cex = 0.55)
+mtext("Invasives", side = 2, line = 3, at = 14.4, cex = 0.8)
+mtext("LUI", side = 2, line = 3, at = 10.7)
+mtext("Nutrient", side = 2, line = 3, at = 6.5)
+mtext("Pollution", side = 2, line = 3, at = 2)
+
+```
+
+
+# Climate Change
+
+
+```{r ClimateModload, include = FALSE}
+climate.mod.5 <- readRDS(file = "Models/ClimateMod.rds")
+
+```
+
+```{r ClimateModres}
+summary(climate.mod.5)
+```
+
+```{r climatemodRes, echo = FALSE}
+
+
+
+climatedat <-predict(climate.mod.5, newmods=rbind(c(0,0,0,0),
+                                    c(1,0,0,0),
+                                    c(0,1,0,0),
+                                    c(0,0,1,0),  
+                                    c(0,0,0,1)
+), addx=TRUE, digits=2) #
+
+slabs <- c("Gas", "Temperature",
+           "UVB Radiation", "Water Availability-Drought", "Water Availability-Flood")
+par(mar=c(3, 8, 1, 1))
+forest(climatedat$pred, sei=climatedat$se, slab=slabs,  xlab="Effect Size", xlim=c(-.4,.7))
+
+
+```
+
+What is interesting here is that it is only the lack of water that has an impact on soil
+fauna. I am surprised by a lack of affect of temperature.
+
+TODO: See if it is always a temperature increase. Maybe need to split temperature into increase/reduce.
+
+
+
+# Land Use Intensity
+
+
+```{r luiModload, include = FALSE}
+lui.mod.1 <- readRDS(file = "Models/LUIMod.rds")
+
+```
+
+```{r luiModres}
+summary(lui.mod.1)
+```
+
+
+As there are three moderators in this model, I have yet to decide how to actually
+present the results
+
+
+So, for now, I have just shown the impact of GCD type and measurement type on macrofauna
+as macrofauna had the most data
+
+```{r luires, echo = FALSE}
+luidat <-predict(lui.mod.1, newmods=rbind(c(0,0,0,0,0,0,0,0,0,0,0,1,0,0),
+                                              c(0,0,0,0,0,0,0,0,1,0,0,1,0,0),
+                                              c(0,0,0,0,0,0,0,0,0,1,0,1,0,0),
+                                              c(0,0,0,0,0,0,0,0,0,0,1,1,0,0),  # intercept
+                                              
+                                              c(1,0,0,0,0,0,0,0,0,0,0,1,0,0),
+                                              c(1,0,0,0,0,0,0,0,1,0,0,1,0,0),
+                                              c(1,0,0,0,0,0,0,0,0,1,0,1,0,0),
+                                              c(1,0,0,0,0,0,0,0,0,0,1,1,0,0),# fire
+                                              
+                                              c(0,1,0,0,0,0,0,0,0,0,0,1,0,0),
+                                              c(0,1,0,0,0,0,0,0,1,0,0,1,0,0),
+                                              c(0,1,0,0,0,0,0,0,0,1,0,1,0,0),
+                                              c(0,1,0,0,0,0,0,0,0,0,1,1,0,0),  # grazing   
+                                              
+                                              c(0,0,1,0,0,0,0,0,0,0,0,1,0,0),
+                                              c(0,0,1,0,0,0,0,0,1,0,0,1,0,0),
+                                              c(0,0,1,0,0,0,0,0,0,1,0,1,0,0),
+                                              c(0,0,1,0,0,0,0,0,0,0,1,1,0,0),  # Harvesting
+                                              
+                                              c(0,0,0,1,0,0,0,0,0,0,0,1,0,0),
+                                              c(0,0,0,1,0,0,0,0,1,0,0,1,0,0),
+                                              c(0,0,0,1,0,0,0,0,0,1,0,1,0,0),
+                                              c(0,0,0,1,0,0,0,0,0,0,1,1,0,0), # Irrigation 
+                                              
+                                              c(0,0,0,0,1,0,0,0,0,0,0,1,0,0),
+                                              c(0,0,0,0,1,0,0,0,1,0,0,1,0,0),
+                                              c(0,0,0,0,1,0,0,0,0,1,0,1,0,0),
+                                              c(0,0,0,0,1,0,0,0,0,0,1,1,0,0),# Management
+                                              
+                                              c(0,0,0,0,0,1,0,0,0,0,0,1,0,0),
+                                              c(0,0,0,0,0,1,0,0,1,0,0,1,0,0),
+                                              c(0,0,0,0,0,1,0,0,0,1,0,1,0,0),
+                                              c(0,0,0,0,0,1,0,0,0,0,1,1,0,0),  # Mono
+                                              
+                                              c(0,0,0,0,0,0,1,0,0,0,0,1,0,0),
+                                              c(0,0,0,0,0,0,1,0,1,0,0,1,0,0),
+                                              c(0,0,0,0,0,0,1,0,0,1,0,1,0,0),
+                                              c(0,0,0,0,0,0,1,0,0,0,1,1,0,0), # organic
+                                              
+                                              c(0,0,0,0,0,0,0,1,0,0,0,1,0,0),
+                                              c(0,0,0,0,0,0,0,1,1,0,0,1,0,0),
+                                              c(0,0,0,0,0,0,0,1,0,1,0,1,0,0),
+                                              c(0,0,0,0,0,0,0,1,0,0,1,1,0,0)# tillage
+), addx=TRUE, digits=2) #
+
+
+
+
+slabs <- rep(c("abundance", "biomass", "richness", "shannon"), times = 9)
+par(mar=c(3, 8, 1, 1))
+forest(luidat$pred, sei=luidat$se, slab=slabs,  xlab="Effect Size", xlim=c(-.4,.7))
+abline(h=4.5, b=0, lty= 2)
+abline(h=8.5, b=0, lty= 2)
+abline(h=12.5, b=0, lty= 2)
+abline(h=16.5, b=0, lty= 2)
+abline(h=20.5, b=0, lty= 2)
+abline(h=24.5, b=0, lty= 2)
+abline(h=28.5, b=0, lty= 2)
+abline(h=32.5, b=0, lty= 2)
+
+
+mtext("Degradation", side = 2, line = 3, at = 34.5, cex = 0.5)
+mtext("Fire", side = 2, line = 3, at = 30.5, cex = 0.7)
+mtext("Grazing", side = 2, line = 3, at = 26.4, cex = 0.7)
+mtext("Harvesting", side = 2, line = 3, at = 22.4, cex = 0.5)
+mtext("Irrigation", side = 2, line = 3, at = 18.4, cex = 0.7)
+mtext("Management", side = 2, line = 3,at = 14.4, cex = 0.5)
+mtext("Mono-\nculture", side = 2, line = 3, at = 10.4, cex = 0.7)
+mtext("Inorganic", side = 2, line = 3, at = 6.4, cex = 0.6)
+mtext("Tillage", side = 2, line = 3, at = 2.4, cex = 0.7)
+
+
+```
+
+
+# Nutrient Enrichment
+
+
+```{r nutriModload, include = FALSE}
+nutri.mod.2 <- readRDS(file = "Models/nutriMod.rds")
+
+```
+
+```{r nutriModres}
+summary(nutri.mod.2)
+```
+
+```{r nutriModplot, echo =FALSE}
+
+
+nutridat <-predict(nutri.mod.2, newmods=rbind(c(0,0,0,0,0,0,0,0,0,0,0),
+                                    c(0,0,0,0,0,0,0,0,1,0,0),
+                                    c(0,0,0,0,0,0,0,0,0,1,0),
+                                    c(0,0,0,0,0,0,0,0,0,0,1),  # intercept
+                                    
+                                    c(1,0,0,0,0,0,0,0,0,0,0),
+                                    c(1,0,0,0,0,0,0,0,1,0,0),
+                                    c(1,0,0,0,0,0,0,0,0,1,0),
+                                    c(1,0,0,0,0,0,0,0,0,0,1),# Ca-liming + Wood ash 
+                                    
+                                    c(0,1,0,0,0,0,0,0,0,0,0),
+                                    c(0,1,0,0,0,0,0,0,1,0,0),
+                                    c(0,1,0,0,0,0,0,0,0,1,0),
+                                    c(0,1,0,0,0,0,0,0,0,0,1),  # Compost   
+                                    
+                                    c(0,0,1,0,0,0,0,0,0,0,0),
+                                    c(0,0,1,0,0,0,0,0,1,0,0),
+                                    c(0,0,1,0,0,0,0,0,0,1,0),
+                                    c(0,0,1,0,0,0,0,0,0,0,1),  # Manure + Slurry
+                                    
+                                    c(0,0,0,1,0,0,0,0,0,0,0),
+                                    c(0,0,0,1,0,0,0,0,1,0,0),
+                                    c(0,0,0,1,0,0,0,0,0,1,0),
+                                    c(0,0,0,1,0,0,0,0,0,0,1), # Mixture 
+                                    
+                                    c(0,0,0,0,1,0,0,0,0,0,0),
+                                    c(0,0,0,0,1,0,0,0,1,0,0),
+                                    c(0,0,0,0,1,0,0,0,0,1,0),
+                                    c(0,0,0,0,1,0,0,0,0,0,1),# Other Organic fertilisers
+                                    
+                                    c(0,0,0,0,0,1,0,0,0,0,0),
+                                    c(0,0,0,0,0,1,0,0,1,0,0),
+                                    c(0,0,0,0,0,1,0,0,0,1,0),
+                                    c(0,0,0,0,0,1,0,0,0,0,1),  # residue + Mulch
+                                    
+                                    c(0,0,0,0,0,0,1,0,0,0,0),
+                                    c(0,0,0,0,0,0,1,0,1,0,0),
+                                    c(0,0,0,0,0,0,1,0,0,1,0),
+                                    c(0,0,0,0,0,0,1,0,0,0,1), # Sludge
+                                    
+                                    c(0,0,0,0,0,0,0,1,0,0,0),
+                                    c(0,0,0,0,0,0,0,1,1,0,0),
+                                    c(0,0,0,0,0,0,0,1,0,1,0),
+                                    c(0,0,0,0,0,0,0,1,0,0,1)# Synthetic Fertilizers
+), addx=TRUE, digits=2) #
+
+
+slabs <- rep(c("abundance", "biomass", "richness", "shannon"), times = 9)
+par(mar=c(3, 8, 1, 1))
+forest(nutridat$pred, sei=nutridat$se, slab=slabs,  xlab="Effect Size", xlim=c(-.4,.7))
+abline(h=4.5, b=0, lty= 2)
+abline(h=8.5, b=0, lty= 2)
+abline(h=12.5, b=0, lty= 2)
+abline(h=16.5, b=0, lty= 2)
+abline(h=20.5, b=0, lty= 2)
+abline(h=24.5, b=0, lty= 2)
+abline(h=28.5, b=0, lty= 2)
+abline(h=32.5, b=0, lty= 2)
+
+
+mtext("Biochar", side = 2, line = 3, at = 34.5, cex = 0.7)
+mtext("Liming", side = 2, line = 3, at = 30.5, cex = 0.7)
+mtext("Compost", side = 2, line = 3, at = 26.4, cex = 0.7)
+mtext("Manure \n+ \nSlurry", side = 2, line = 3, at = 22.4, cex = 0.7)
+mtext("Mixture", side = 2, line = 3, at = 18.4, cex = 0.7)
+mtext("Organic \nfertilisers", side = 2, line = 3,at = 14.4, cex = 0.7)
+
+
+mtext("Residue \n+ Mulch", side = 2, line = 3, at = 10.4, cex = 0.7)
+mtext("Sludge", side = 2, line = 3, at = 6.4, cex = 0.7)
+mtext("Synthetic \nFertilizers", side = 2, line = 3, at = 2.4, cex = 0.7)
+
+```
+
+
+Take home messages: Most nutrient enrichments have no impact on biodiversity. Those that do (organic fertilisers, 
+manure, and mulch) are all ones that can be considered to be soil amendments. i.e. they are 
+changing the structure of the soil (as well as adding nutrients). (or the nutrients are slow release??)
+So it is more the change in structure that is beneficial, rather than the resource addition.
+
+All organisms benefit from this change in structure, regardless of size.
+
+# Invasive Species
+
+
+
+```{r invaModload, include = FALSE}
+invas.mod.4 <- readRDS(file = "Models/invasiveMod.rds")
+```
+
+Not enough data to look at different measurement types, so I only used the abundance data.
+
+There were no significant variables in the model (GCD type and  body size could be removed). Left with an intercept only model.
+Where we can see that there is no significant impact of invasive species on soil fauna.
+
+This lines up with main model, as only biomass showed significant impacts.
+
+```{r invaModres}
+summary(invas.mod.4)
+```
+
+
+As I haven't done the habitat fragmentation due to lack of data, I think I would also be tempted to not
+look indepth at invasive species either.
+
+
+
+# Pollution
+
+```{r pollModload, include = FALSE}
+poll.mod.7 <- readRDS(file = "Models/pollutionMod.rds")
+```
+
+
+```{r pollModres}
+summary(poll.mod.7)
+```
+
+Like the invasive species model, there are not covariates in this model. However, unlike the invasive
+species model, the intercept is significantly different from zero (and negative).
+
+So pollution is have a negative impact, it just doesn't vary by different types, or body size of the soil fauna,
+or by metric (all metrics respond negatively.)
+
