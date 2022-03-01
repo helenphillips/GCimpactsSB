@@ -128,7 +128,7 @@ dat$driver[which(dat$GCDType == "Fire")] <-  "LUI"
 
 # BodySize and Taxonomic Group
 
-unique(dat$TaxaGroup[order(dat$TaxaGroup)])
+# unique(dat$TaxaGroup[order(dat$TaxaGroup)])
 
 taxa <- read.csv(file.path("Data","February2022", "taxonomic classification - version 3.csv"))
 dat <- merge(dat, taxa, by.x = "TaxaGroup", by.y = "original_v2", all.x = TRUE)
