@@ -14,7 +14,6 @@ dataDir <- "Data/February2022"
 
 DataCleaned <- read.csv(file.path(dataDir, "processed", "0_2_alldata.csv"), header = TRUE) # load the cleaned data (Change the name)
 
-### Split to abundance and richness
 table(DataCleaned$Measurement)
 
 
@@ -106,8 +105,7 @@ head(hedges[which(hedges$var > 10),])
 
 # Save data
 write.csv(hedges, "Data/03_Data/HedgesData.csv")
-# 3307
-
+# 3341
 
 
 hedges$UniqueID <- paste(hedges$ID, hedges$Case_ID, hedges$driver)
@@ -171,15 +169,27 @@ summary(bodysize.mod.1)
 
 ## FULL MODEL ---------
 
+# Remove indices with little data
 hedges <- hedges[!(hedges$Body.Size == ""),]
 hedges <- hedges[!(hedges$Measurement == "FunctionalRichness"),]
 hedges <- hedges[!(hedges$Measurement == "GroupAbundance"),]
+hedges <- hedges[!(hedges$Measurement == "Simpson"),]
+hedges <- hedges[!(hedges$Measurement == "Evenness"),]
+
+
+
+hedges$Body.Size[which(hedges$Body.Size %in% c("Arthropods (all sizes)", "Insects (all sizes)", "Invertebrates (all sizes)"))] <- "All sizes"
+hedges$Body.Size[which(hedges$Body.Size %in% c("Macro-arthropods", "Macro-invertebrates"))] <- "Macro-fauna"
+
+
+write.csv(hedges, "Data/03_Data/HedgesData_cleaned.csv")
+
 
 
 mod.1<-rma.mv(
   yi=effect,
   V=var, 
-  mods=~driver + Measurement + Body.Size -1 , ## 
+  mods=~driver:Body.Size + Measurement, ## 
   random= ~1|ID/UniqueID,
   struct="CS",
   method="ML",
@@ -187,6 +197,19 @@ mod.1<-rma.mv(
   data=hedges)
 
 beep()
+
+
+mod.1b<-rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~driver + Body.Size + Measurement, ## 
+  random= ~1|ID/UniqueID,
+  struct="CS",
+  method="ML",
+  digits=4,
+  data=hedges)
+beep()
+# mod.1 and mod.1b are significantly different. Indicating we need the interaction
 
 
 qqnorm(residuals(mod.1,type="pearson"),main="QQ plot: residuals")
@@ -197,7 +220,7 @@ qqline(residuals(mod.1,type="pearson"),col="red")
 mod.2<-rma.mv(
   yi=effect,
   V=var, 
-  mods=~driver + Measurement -1 , ## 
+  mods=~driver + Measurement, ## 
   random= ~1|ID/UniqueID,
   struct="CS",
   method="ML",
@@ -213,7 +236,7 @@ beep()
 mod.3<-rma.mv(
   yi=effect,
   V=var, 
-  mods=~driver  -1 , ## 
+  mods=~driver, ## 
   random= ~1|ID/UniqueID,
   struct="CS",
   method="ML",
@@ -225,7 +248,7 @@ anova(mod.2, mod.3) # that is significantly different
 mod.4<-rma.mv(
   yi=effect,
   V=var, 
-  mods=~Measurement  -1 , ## 
+  mods=~Measurement, ## 
   random= ~1|ID/UniqueID,
   struct="CS",
   method="ML",
@@ -234,53 +257,60 @@ mod.4<-rma.mv(
 anova(mod.2, mod.4) # that is significantly different
 
 
-
-
-
 ## we stick with mod.2
+saveRDS(mod.2, file = "Models/MainMod.rds")
 
 
+
+# https://stats.stackexchange.com/questions/109841/presenting-results-of-a-meta-analysis-with-multiple-moderators
 ### compute the estimated/predicted correlation for each combination
-test <-predict(mod.2, newmods=rbind(c(1,0,0,0,0,0,0,0,0,0,0),
-                             c(1,0,0,0,0,0,1,0,0,0,0),
-                             c(1,0,0,0,0,0,0,1,0,0,0),
-                             c(1,0,0,0,0,0,0,0,1,0,0),
-                             c(1,0,0,0,0,0,0,0,0,1,0),
-                             c(1,0,0,0,0,0,0,0,0,0,1), # climate with all different measurement types
-                             c(0,1,0,0,0,0,0,0,0,0,0),
-                             c(0,1,0,0,0,0,1,0,0,0,0),
-                             c(0,1,0,0,0,0,0,1,0,0,0),
-                             c(0,1,0,0,0,0,0,0,1,0,0),
-                             c(0,1,0,0,0,0,0,0,0,1,0),
-                             c(0,1,0,0,0,0,0,0,0,0,1), # habitat 
-                             c(0,0,1,0,0,0,0,0,0,0,0),
-                             c(0,0,1,0,0,0,1,0,0,0,0),
-                             c(0,0,1,0,0,0,0,1,0,0,0),
-                             c(0,0,1,0,0,0,0,0,1,0,0),
-                             c(0,0,1,0,0,0,0,0,0,1,0),
-                             c(0,0,1,0,0,0,0,0,0,0,1),  # invasive
-                             c(0,0,0,1,0,0,0,0,0,0,0),
-                             c(0,0,0,1,0,0,1,0,0,0,0),
-                             c(0,0,0,1,0,0,0,1,0,0,0),
-                             c(0,0,0,1,0,0,0,0,1,0,0),
-                             c(0,0,0,1,0,0,0,0,0,1,0),
-                             c(0,0,0,1,0,0,0,0,0,0,1), # lui
-                             c(0,0,0,0,1,0,0,0,0,0,0),
-                             c(0,0,0,0,1,0,1,0,0,0,0),
-                             c(0,0,0,0,1,0,0,1,0,0,0),
-                             c(0,0,0,0,1,0,0,0,1,0,0),
-                             c(0,0,0,0,1,0,0,0,0,1,0),
-                             c(0,0,0,0,1,0,0,0,0,0,1), # nutrient
-                             c(0,0,0,0,0,1,0,0,0,0,0),
-                             c(0,0,0,0,0,1,1,0,0,0,0),
-                             c(0,0,0,0,0,1,0,1,0,0,0),
-                             c(0,0,0,0,0,1,0,0,1,0,0),
-                             c(0,0,0,0,0,1,0,0,0,1,0),
-                             c(0,0,0,0,0,1,0,0,0,0,1) # pollution
+test <-predict(mod.2, newmods=rbind(c(0,0,0,0,0,0,0,0),
+                             c(0,0,0,0,0,1,0,0),
+                             c(0,0,0,0,0,0,1,0),
+                             c(0,0,0,0,0,0,0,1),  # climate with all different measurement types
+                             c(1,0,0,0,0,0,0,0),
+                             c(1,0,0,0,0,1,0,0),
+                             c(1,0,0,0,0,0,1,0),
+                             c(1,0,0,0,0,0,0,1),# habitat 
+                             c(0,1,0,0,0,0,0,0),
+                             c(0,1,0,0,0,1,0,0),
+                             c(0,1,0,0,0,0,1,0),
+                             c(0,1,0,0,0,0,0,1),  # invasive
+                             c(0,0,1,0,0,0,0,0),
+                             c(0,0,1,0,0,1,0,0),
+                             c(0,0,1,0,0,0,1,0),
+                             c(0,0,1,0,0,0,0,1),  # lui
+                             c(0,0,0,1,0,1,0,0),
+                             c(0,0,0,1,0,0,0,0),
+                             c(0,0,0,1,0,0,1,0),
+                             c(0,0,0,1,0,0,0,1), # nutrient
+                             c(0,0,0,0,1,0,0,0),
+                             c(0,0,0,0,1,1,0,0),
+                             c(0,0,0,0,1,0,1,0),
+                             c(0,0,0,0,1,0,0,1)# pollution
                              ), addx=TRUE, digits=2) #
 
-slab=slabs,  
-forest(test$pred, sei=test$se, xlab="Effect Size", xlim=c(-.4,.7))
+slabs <- rep(c("abundance", "biomass", "richness", "shannon"), times = 6)
+par(mar=c(3, 8, 1, 1))
+forest(test$pred, sei=test$se, slab=slabs,  xlab="Effect Size", xlim=c(-.4,.7))
+abline(h=4.5, b=0, lty= 2)
+abline(h=8.5, b=0, lty= 2)
+abline(h=12.5, b=0, lty= 2)
+abline(h=16.5, b=0, lty= 2)
+abline(h=20.5, b=0, lty= 2)
+
+
+mtext("Climate", side = 2, line = 3, at = 22.5)
+mtext("Fragmentation", side = 2, line = 3, at = 18.5, cex = 0.55)
+mtext("Invasives", side = 2, line = 3, at = 14.4, cex = 0.8)
+mtext("LUI", side = 2, line = 3, at = 10.7)
+mtext("Nutrient", side = 2, line = 3, at = 6.5)
+mtext("Pollution", side = 2, line = 3, at = 2)
+
+
+
+
+
 
 ## SPLITTING DRIVERS --------
 
@@ -288,11 +318,6 @@ climate <- hedges[which(hedges$driver == "Climate"),] # 462
 
 table(climate$GCDType)
 table(climate$GCDType, climate$Measurement)
-
-
-## Remove the very underrepresented measurement types
-climate <- climate[which(climate$Measurement != "Evenness"),]
-climate <- climate[which(climate$Measurement != "Simpson"),]
 
 
 ## going to remove vegetation as a gcd type. 2 lines are thickness of moss, and the 10 other lines are canopy gaps due to ice storm
@@ -303,14 +328,13 @@ climate <- climate[which(climate$GCDType != "Precipitation+Temp"),]
 
 # Checking body size
 table(climate$Body.Size)
-climate$Body.Size[which(climate$Body.Size %in% c("Arthropods (all sizes)", "Insects (all sizes)", "Invertebrates (all sizes)"))] <- "All sizes"
-climate$Body.Size[which(climate$Body.Size %in% c("Macro-arthropods"))] <- "Macro-fauna"
+climate$Body.Size[which(climate$Body.Size %in% c("Micro-arthropods"))] <- "Meso-fauna"
 
 
 climate.mod.1<-rma.mv(
   yi=effect,
   V=var, 
-  mods=~GCDType + Measurement + Body.Size -1 , ## 
+  mods=~GCDType + Measurement + Body.Size, ## 
   random= ~1|ID/UniqueID,
   struct="CS",
   method="ML",
@@ -326,7 +350,7 @@ qqline(residuals(climate.mod.1,type="pearson"),col="red")
 climate.mod.2<-rma.mv(
   yi=effect,
   V=var, 
-  mods=~GCDType + Measurement -1 , ## 
+  mods=~GCDType + Measurement , ## 
   random= ~1|ID/UniqueID,
   struct="CS",
   method="ML",
@@ -340,7 +364,7 @@ anova(climate.mod.1, climate.mod.2) # not diff
 climate.mod.3<-rma.mv(
   yi=effect,
   V=var, 
-  mods=~GCDType + Body.Size -1 , ## 
+  mods=~GCDType + Body.Size , ## 
   random= ~1|ID/UniqueID,
   struct="CS",
   method="ML",
@@ -349,52 +373,70 @@ climate.mod.3<-rma.mv(
 
 anova(climate.mod.1, climate.mod.3) # not diff, but lower p-val
 
-
 climate.mod.4<-rma.mv(
   yi=effect,
   V=var, 
-  mods=~GCDType  -1 , ## 
+  mods=~Measurement + Body.Size , ## 
   random= ~1|ID/UniqueID,
   struct="CS",
   method="ML",
   digits=4,
   data=climate)
-anova(climate.mod.3, climate.mod.4) # not diff, but lower p-val
+
+anova(climate.mod.1, climate.mod.4) # that's significant
+
+
+
+climate.mod.5<-rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~GCDType  , ## 
+  random= ~1|ID/UniqueID,
+  struct="CS",
+  method="ML",
+  digits=4,
+  data=climate)
+anova(climate.mod.2, climate.mod.5) # not significant
+
+
+climate.mod.6<-rma.mv(
+  yi=effect,
+  V=var, 
+#  mods=~GCDType  , ## 
+  random= ~1|ID/UniqueID,
+  struct="CS",
+  method="ML",
+  digits=4,
+  data=climate)
+anova(climate.mod.1, climate.mod.6) #  significant at 0.05 level
+
+
+
+## Use climate.mod.5
+saveRDS(climate.mod.5, file = "Models/ClimateMod.rds")
+
+
+qqnorm(residuals(climate.mod.5,type="pearson"),main="QQ plot: residuals")
+qqline(residuals(climate.mod.5,type="pearson"),col="red") # fine
 
 
 
 
-qqnorm(residuals(climate.mod.4,type="pearson"),main="QQ plot: residuals")
-qqline(residuals(climate.mod.4,type="pearson"),col="red") # fine
+climatedat <-predict(climate.mod.5, newmods=rbind(c(0,0,0,0),
+                                    c(1,0,0,0),
+                                    c(0,1,0,0),
+                                    c(0,0,1,0),  
+                                    c(0,0,0,1)
+), addx=TRUE, digits=2) #
 
-
-y<-summary(climate.mod.4)$b
-ci_l<-summary(climate.mod.4)$ci.lb
-ci_h<-summary(climate.mod.4)$ci.ub
-
-fg1<-data.frame(cbind(y,ci_l,ci_h))
-colnames(fg1)[1]<-"y"
-colnames(fg1)[2]<-"ci_l"
-colnames(fg1)[3]<-"ci_h"
-fg1$GCD<-c("Fire","Gas", "Temperature",
+slabs <- c("Gas", "Temperature",
            "UVB Radiation", "Water Availability-Drought", "Water Availability-Flood")
-fg1$GCD<-as.factor(fg1$GCD)
+par(mar=c(3, 8, 1, 1))
+forest(climatedat$pred, sei=climatedat$se, slab=slabs,  xlab="Effect Size", xlim=c(-.4,.7))
 
 
-p <- ggplot(fg1, aes(x=GCD, y=y, ymin=ci_l, ymax=ci_h))+
-  geom_point(aes(size = 1)) +
-  geom_pointrange()+
-  geom_hline(yintercept = 0, linetype=2)+
-  coord_flip()+
-  theme_bw() +
-  theme(axis.text=element_text(size=16, face = "bold"),
-        panel.grid.major = element_blank(), 
-        panel.grid.minor = element_blank(),
-        panel.border = element_blank(),
-        axis.line = element_line(colour = "black"))+
-  xlab('') +
-  ylab ('Effect Size')
-p
+
+
 
 
 ## LUI -------
@@ -417,22 +459,17 @@ lui <- lui[which(lui$GCDType != "Human population"),]
 table(lui$GCDType, lui$Measurement)
 
 
-## Remove the very underrepresented measurement types
-lui <- lui[which(lui$Measurement != "FunctionalRichness"),]
-lui <- lui[which(lui$Measurement != "Simpson"),]
-lui <- lui[which(lui$Measurement != "Evenness"),]
 
 ## Checking body size
 table(lui$Body.Size)
-lui$Body.Size[which(lui$Body.Size %in% c("Arthropods (all sizes)", "Invertebrates (all sizes)"))] <- "All sizes"
-lui$Body.Size[which(lui$Body.Size %in% c("Macro-arthropods", "Macro-invertebrates"))] <- "Macro-fauna"
+lui$Body.Size[which(lui$Body.Size %in% c("Micro-arthropods"))] <- "Meso-fauna"
 
 
 
 lui.mod.1<-rma.mv(
   yi=effect,
   V=var, 
-  mods=~GCDType + Measurement + Body.Size -1 , ## 
+  mods=~GCDType + Measurement + Body.Size, ## 
   random= ~1|ID/UniqueID,
   struct="CS",
   method="ML",
@@ -443,12 +480,12 @@ summary(lui.mod.1)
 
 qqnorm(residuals(lui.mod.1,type="pearson"),main="QQ plot: residuals")
 qqline(residuals(lui.mod.1,type="pearson"),col="red")
-Anova(lui.mod.1)
+
 
 lui.mod.2<-rma.mv(
   yi=effect,
   V=var, 
-  mods=~GCDType + Measurement -1 , ## 
+  mods=~GCDType + Measurement , ## 
   random= ~1|ID/UniqueID,
   struct="CS",
   method="ML",
@@ -456,13 +493,13 @@ lui.mod.2<-rma.mv(
   data=lui)
 
 
-anova(lui.mod.1, lui.mod.2) #  different (at 0.05 level)
+anova(lui.mod.1, lui.mod.2) #  signi. different (at 0.05 level) need body size?
 
 
 lui.mod.3<-rma.mv(
   yi=effect,
   V=var, 
-  mods=~GCDType + Body.Size -1 , ## 
+  mods=~GCDType + Body.Size, ## 
   random= ~1|ID/UniqueID,
   struct="CS",
   method="ML",
@@ -471,6 +508,107 @@ lui.mod.3<-rma.mv(
 
 
 anova(lui.mod.1, lui.mod.3) #  definitely significantly different. Need measurement
+
+
+lui.mod.4<-rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~Measurement + Body.Size, ## 
+  random= ~1|ID/UniqueID,
+  struct="CS",
+  method="ML",
+  digits=4,
+  data=lui)
+
+
+anova(lui.mod.1, lui.mod.4) #  definitely significantly different. Need driver type
+
+
+## final model has all three
+saveRDS(lui.mod.1, file = "Models/LUIMod.rds")
+
+
+
+## NO IDEA HOW TO PRESENT THIS YET
+
+table(lui$Body.Size) # macrofauna has the greatest numbers
+# maybe show only macrofauna for the different measurement types
+
+
+luidat <-predict(lui.mod.1, newmods=rbind(c(0,0,0,0,0,0,0,0,0,0,0,1,0,0),
+                                              c(0,0,0,0,0,0,0,0,1,0,0,1,0,0),
+                                              c(0,0,0,0,0,0,0,0,0,1,0,1,0,0),
+                                              c(0,0,0,0,0,0,0,0,0,0,1,1,0,0),  # intercept
+                                              
+                                              c(1,0,0,0,0,0,0,0,0,0,0,1,0,0),
+                                              c(1,0,0,0,0,0,0,0,1,0,0,1,0,0),
+                                              c(1,0,0,0,0,0,0,0,0,1,0,1,0,0),
+                                              c(1,0,0,0,0,0,0,0,0,0,1,1,0,0),# fire
+                                              
+                                              c(0,1,0,0,0,0,0,0,0,0,0,1,0,0),
+                                              c(0,1,0,0,0,0,0,0,1,0,0,1,0,0),
+                                              c(0,1,0,0,0,0,0,0,0,1,0,1,0,0),
+                                              c(0,1,0,0,0,0,0,0,0,0,1,1,0,0),  # grazing   
+                                              
+                                              c(0,0,1,0,0,0,0,0,0,0,0,1,0,0),
+                                              c(0,0,1,0,0,0,0,0,1,0,0,1,0,0),
+                                              c(0,0,1,0,0,0,0,0,0,1,0,1,0,0),
+                                              c(0,0,1,0,0,0,0,0,0,0,1,1,0,0),  # Harvesting
+                                              
+                                              c(0,0,0,1,0,0,0,0,0,0,0,1,0,0),
+                                              c(0,0,0,1,0,0,0,0,1,0,0,1,0,0),
+                                              c(0,0,0,1,0,0,0,0,0,1,0,1,0,0),
+                                              c(0,0,0,1,0,0,0,0,0,0,1,1,0,0), # Irrigation 
+                                              
+                                              c(0,0,0,0,1,0,0,0,0,0,0,1,0,0),
+                                              c(0,0,0,0,1,0,0,0,1,0,0,1,0,0),
+                                              c(0,0,0,0,1,0,0,0,0,1,0,1,0,0),
+                                              c(0,0,0,0,1,0,0,0,0,0,1,1,0,0),# Management
+                                              
+                                              c(0,0,0,0,0,1,0,0,0,0,0,1,0,0),
+                                              c(0,0,0,0,0,1,0,0,1,0,0,1,0,0),
+                                              c(0,0,0,0,0,1,0,0,0,1,0,1,0,0),
+                                              c(0,0,0,0,0,1,0,0,0,0,1,1,0,0),  # Mono
+                                              
+                                              c(0,0,0,0,0,0,1,0,0,0,0,1,0,0),
+                                              c(0,0,0,0,0,0,1,0,1,0,0,1,0,0),
+                                              c(0,0,0,0,0,0,1,0,0,1,0,1,0,0),
+                                              c(0,0,0,0,0,0,1,0,0,0,1,1,0,0), # organic
+                                              
+                                              c(0,0,0,0,0,0,0,1,0,0,0,1,0,0),
+                                              c(0,0,0,0,0,0,0,1,1,0,0,1,0,0),
+                                              c(0,0,0,0,0,0,0,1,0,1,0,1,0,0),
+                                              c(0,0,0,0,0,0,0,1,0,0,1,1,0,0)# tillage
+), addx=TRUE, digits=2) #
+
+
+
+
+slabs <- rep(c("abundance", "biomass", "richness", "shannon"), times = 9)
+par(mar=c(3, 8, 1, 1))
+forest(luidat$pred, sei=luidat$se, slab=slabs,  xlab="Effect Size", xlim=c(-.4,.7))
+abline(h=4.5, b=0, lty= 2)
+abline(h=8.5, b=0, lty= 2)
+abline(h=12.5, b=0, lty= 2)
+abline(h=16.5, b=0, lty= 2)
+abline(h=20.5, b=0, lty= 2)
+abline(h=24.5, b=0, lty= 2)
+abline(h=28.5, b=0, lty= 2)
+abline(h=32.5, b=0, lty= 2)
+
+
+mtext("Degradation", side = 2, line = 3, at = 34.5, cex = 0.5)
+mtext("Fire", side = 2, line = 3, at = 30.5, cex = 0.7)
+mtext("Grazing", side = 2, line = 3, at = 26.4, cex = 0.7)
+mtext("Harvesting", side = 2, line = 3, at = 22.4, cex = 0.5)
+mtext("Irrigation", side = 2, line = 3, at = 18.4, cex = 0.7)
+mtext("Management", side = 2, line = 3,at = 14.4, cex = 0.5)
+mtext("Mono-\nculture", side = 2, line = 3, at = 10.4, cex = 0.7)
+mtext("Inorganic", side = 2, line = 3, at = 6.4, cex = 0.6)
+mtext("Tillage", side = 2, line = 3, at = 2.4, cex = 0.7)
+
+
+
 
 
 
@@ -486,20 +624,16 @@ table(nutri$GCDType)
 table(nutri$GCDType, nutri$Measurement)
 
 
-## Remove the very underrepresented measurement types
-nutri <- nutri[which(nutri$Measurement != "Simpson"),]
-nutri <- nutri[which(nutri$Measurement != "Evenness"),]
-
 ## Check body size
 table(nutri$Body.Size)
-nutri$Body.Size[which(nutri$Body.Size %in% c("Arthropods (all sizes)", "Insects (all sizes)", "Invertebrates (all sizes)"))] <- "All sizes"
-nutri$Body.Size[which(nutri$Body.Size %in% c("Macro-arthropods", "Macro-invertebrates"))] <- "Macro-fauna"
+nutri$Body.Size[which(nutri$Body.Size %in% c("Micro-arthropods"))] <- "Meso-fauna"
+
 
 
 nutri.mod.1<-rma.mv(
   yi=effect,
   V=var, 
-  mods=~GCDType + Measurement + Body.Size -1 , ## 
+  mods=~GCDType + Measurement + Body.Size, ## 
   random= ~1|ID/UniqueID,
   struct="CS",
   method="ML",
@@ -512,7 +646,7 @@ summary(nutri.mod.1)
 nutri.mod.2<-rma.mv(
   yi=effect,
   V=var, 
-  mods=~GCDType + Measurement -1 , ## 
+  mods=~GCDType + Measurement , ## 
   random= ~1|ID/UniqueID,
   struct="CS",
   method="ML",
@@ -525,40 +659,143 @@ anova(nutri.mod.1, nutri.mod.2) #  not different (at 0.05 level)
 nutri.mod.3<-rma.mv(
   yi=effect,
   V=var, 
-  mods=~GCDType + Body.Size -1 , ## 
+  mods=~GCDType + Body.Size , ## 
   random= ~1|ID/UniqueID,
   struct="CS",
   method="ML",
   digits=4,
   data=nutri)
-anova(nutri.mod.1, nutri.mod.3) #  significantly different (at 0.05 level). So move to mod2
+anova(nutri.mod.1, nutri.mod.3) #  significantly different (at 0.05 level)
 
 
 nutri.mod.4<-rma.mv(
   yi=effect,
   V=var, 
-  mods=~GCDType  -1 , ## 
+  mods=~Measurement + Body.Size , ## 
   random= ~1|ID/UniqueID,
   struct="CS",
   method="ML",
   digits=4,
   data=nutri)
+anova(nutri.mod.1, nutri.mod.4) #  significantly different (at 0.05 level)
+# move to mod2
 
-anova(nutri.mod.2, nutri.mod.4) #  not quite significantly different (at 0.05 level)
-anova(nutri.mod.1, nutri.mod.4) # but that is sign. different. So that makes no sense
 
 nutri.mod.5<-rma.mv(
   yi=effect,
   V=var, 
-  mods=~Measurement  -1 , ## 
+  mods=~GCDType, ## 
+  random= ~1|ID/UniqueID,
+  struct="CS",
+  method="ML",
+  digits=4,
+  data=nutri)
+anova(nutri.mod.2, nutri.mod.5) #  not significantly different (at 0.05 level)
+
+
+
+nutri.mod.6<-rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~Measurement, ## 
   random= ~1|ID/UniqueID,
   struct="CS",
   method="ML",
   digits=4,
   data=nutri)
 
-anova(nutri.mod.2, nutri.mod.5) #  Significantly different. 
-## Need mod 4 in theory. But it doesn't quite make sense
+anova(nutri.mod.2, nutri.mod.6) #  significantly different
+
+
+
+anova(nutri.mod.1, nutri.mod.5) # but that is sign. different. So that makes no sense
+
+## Need mod 5 in theory. But it doesn't quite make sense
+# Clearly as both reductions were on the cusp of being significant
+# the full reduciton is too much
+## we will go with mod2
+
+
+saveRDS(nutri.mod.2, file = "Models/nutriMod.rds")
+
+
+
+nutridat <-predict(nutri.mod.2, newmods=rbind(c(0,0,0,0,0,0,0,0,0,0,0),
+                                    c(0,0,0,0,0,0,0,0,1,0,0),
+                                    c(0,0,0,0,0,0,0,0,0,1,0),
+                                    c(0,0,0,0,0,0,0,0,0,0,1),  # intercept
+                                    
+                                    c(1,0,0,0,0,0,0,0,0,0,0),
+                                    c(1,0,0,0,0,0,0,0,1,0,0),
+                                    c(1,0,0,0,0,0,0,0,0,1,0),
+                                    c(1,0,0,0,0,0,0,0,0,0,1),# Ca-liming + Wood ash 
+                                    
+                                    c(0,1,0,0,0,0,0,0,0,0,0),
+                                    c(0,1,0,0,0,0,0,0,1,0,0),
+                                    c(0,1,0,0,0,0,0,0,0,1,0),
+                                    c(0,1,0,0,0,0,0,0,0,0,1),  # Compost   
+                                    
+                                    c(0,0,1,0,0,0,0,0,0,0,0),
+                                    c(0,0,1,0,0,0,0,0,1,0,0),
+                                    c(0,0,1,0,0,0,0,0,0,1,0),
+                                    c(0,0,1,0,0,0,0,0,0,0,1),  # Manure + Slurry
+                                    
+                                    c(0,0,0,1,0,0,0,0,0,0,0),
+                                    c(0,0,0,1,0,0,0,0,1,0,0),
+                                    c(0,0,0,1,0,0,0,0,0,1,0),
+                                    c(0,0,0,1,0,0,0,0,0,0,1), # Mixture 
+                                    
+                                    c(0,0,0,0,1,0,0,0,0,0,0),
+                                    c(0,0,0,0,1,0,0,0,1,0,0),
+                                    c(0,0,0,0,1,0,0,0,0,1,0),
+                                    c(0,0,0,0,1,0,0,0,0,0,1),# Other Organic fertilisers
+                                    
+                                    c(0,0,0,0,0,1,0,0,0,0,0),
+                                    c(0,0,0,0,0,1,0,0,1,0,0),
+                                    c(0,0,0,0,0,1,0,0,0,1,0),
+                                    c(0,0,0,0,0,1,0,0,0,0,1),  # residue + Mulch
+                                    
+                                    c(0,0,0,0,0,0,1,0,0,0,0),
+                                    c(0,0,0,0,0,0,1,0,1,0,0),
+                                    c(0,0,0,0,0,0,1,0,0,1,0),
+                                    c(0,0,0,0,0,0,1,0,0,0,1), # Sludge
+                                    
+                                    c(0,0,0,0,0,0,0,1,0,0,0),
+                                    c(0,0,0,0,0,0,0,1,1,0,0),
+                                    c(0,0,0,0,0,0,0,1,0,1,0),
+                                    c(0,0,0,0,0,0,0,1,0,0,1)# Synthetic Fertilizers
+), addx=TRUE, digits=2) #
+
+
+slabs <- rep(c("abundance", "biomass", "richness", "shannon"), times = 9)
+par(mar=c(3, 8, 1, 1))
+forest(nutridat$pred, sei=nutridat$se, slab=slabs,  xlab="Effect Size", xlim=c(-.4,.7))
+abline(h=4.5, b=0, lty= 2)
+abline(h=8.5, b=0, lty= 2)
+abline(h=12.5, b=0, lty= 2)
+abline(h=16.5, b=0, lty= 2)
+abline(h=20.5, b=0, lty= 2)
+abline(h=24.5, b=0, lty= 2)
+abline(h=28.5, b=0, lty= 2)
+abline(h=32.5, b=0, lty= 2)
+
+
+mtext("Biochar", side = 2, line = 3, at = 34.5, cex = 0.7)
+mtext("Liming", side = 2, line = 3, at = 30.5, cex = 0.7)
+mtext("Compost", side = 2, line = 3, at = 26.4, cex = 0.7)
+mtext("Manure \n+ \nSlurry", side = 2, line = 3, at = 22.4, cex = 0.7)
+mtext("Mixture", side = 2, line = 3, at = 18.4, cex = 0.7)
+mtext("Organic \nfertilisers", side = 2, line = 3,at = 14.4, cex = 0.7)
+
+
+mtext("Residue \n+ Mulch", side = 2, line = 3, at = 10.4, cex = 0.7)
+mtext("Sludge", side = 2, line = 3, at = 6.4, cex = 0.7)
+mtext("Synthetic \nFertilizers", side = 2, line = 3, at = 2.4, cex = 0.7)
+
+
+
+
+
 
 
 
@@ -579,14 +816,14 @@ invas <- invas[which(invas$Measurement == "Abundance"),] # just use abundance
 
 ## Body size
 table(invas$GCDType, invas$Body.Size)
+invas$Body.Size[which(invas$Body.Size %in% c("Micro-arthropods"))] <- "Meso-fauna"
 
-invas$Body.Size[which(invas$Body.Size %in% c("Arthropods (all sizes)", "Insects (all sizes)", "Invertebrates (all sizes)"))] <- "All sizes"
 
 
 invas.mod.1<-rma.mv(
   yi=effect,
   V=var, 
-  mods=~GCDType  + Body.Size -1 , ## 
+  mods=~GCDType  + Body.Size , ## 
   random= ~1|ID/UniqueID,
   struct="CS",
   method="ML",
@@ -597,30 +834,45 @@ invas.mod.1<-rma.mv(
 invas.mod.2<-rma.mv(
   yi=effect,
   V=var, 
-  mods=~GCDType  -1 , ## 
+  mods=~GCDType , ## 
   random= ~1|ID/UniqueID,
   struct="CS",
   method="ML",
   digits=4,
   data=invas)
 
-anova(invas.mod.1, invas.mod.2) ## That is significant
+anova(invas.mod.1, invas.mod.2) ## That is not quite significant
 
 
 invas.mod.3<-rma.mv(
   yi=effect,
   V=var, 
-  mods=~Body.Size  -1 , ## 
+  mods=~Body.Size , ## 
   random= ~1|ID/UniqueID,
   struct="CS",
   method="ML",
   digits=4,
   data=invas)
 
-anova(invas.mod.1, invas.mod.3) ## That is also significant
+anova(invas.mod.1, invas.mod.3) ## That is also not significant
 
 
-summary(invas.mod.1)
+
+invas.mod.4<-rma.mv(
+  yi=effect,
+  V=var, 
+ #  mods=~Body.Size , ## intercept only
+  random= ~1|ID/UniqueID,
+  struct="CS",
+  method="ML",
+  digits=4,
+  data=invas)
+
+anova(invas.mod.1, invas.mod.4) ## That is  not significant
+
+
+summary(invas.mod.4)
+saveRDS(invas.mod.4, file = "Models/invasiveMod.rds")
 
 
 
@@ -647,8 +899,7 @@ table(poll$GCDType, poll$Measurement)
 table(poll$Body.Size)
 
 
-poll$Body.Size[which(poll$Body.Size %in% c("Arthropods (all sizes)", "Insects (all sizes)", "Invertebrates (all sizes)"))] <- "All sizes"
-poll$Body.Size[which(poll$Body.Size %in% c("Macro-arthropods", "Macro-invertebrates"))] <- "Macro-fauna"
+poll$Body.Size[which(poll$Body.Size %in% c("Micro-arthropods"))] <- "Meso-fauna"
 
 
 
@@ -675,7 +926,7 @@ poll.mod.2<-rma.mv(
   digits=4,
   data=poll)
 
-anova(poll.mod.1, poll.mod.2) # Significant at 0.05 level
+anova(poll.mod.1, poll.mod.2) # not Significant at 0.05 level
 
 poll.mod.3<-rma.mv(
   yi=effect,
@@ -689,8 +940,24 @@ poll.mod.3<-rma.mv(
 anova(poll.mod.1, poll.mod.3) # not Significantly different
 
 
-
 poll.mod.4<-rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~Body.Size + Measurement, ## 
+  random= ~1|ID/UniqueID,
+  struct="CS",
+  method="ML",
+  digits=4,
+  data=poll)
+
+anova(poll.mod.1, poll.mod.4) # not Significantly different
+
+
+# carry on with mod3
+
+
+
+poll.mod.5<-rma.mv(
   yi=effect,
   V=var, 
   mods=~GCDType , ## 
@@ -699,11 +966,11 @@ poll.mod.4<-rma.mv(
   method="ML",
   digits=4,
   data=poll)
-anova(poll.mod.3, poll.mod.4) # that is not Significantly different
+anova(poll.mod.3, poll.mod.5) # that is not Significantly different
 
 
 
-poll.mod.5<-rma.mv(
+poll.mod.6<-rma.mv(
   yi=effect,
   V=var, 
   mods=~Measurement, ## 
@@ -712,24 +979,38 @@ poll.mod.5<-rma.mv(
   method="ML",
   digits=4,
   data=poll)
-anova(poll.mod.3, poll.mod.5) # that is  Significantly different
-## The type of GCD doesn't matter, just the measurement
+anova(poll.mod.3, poll.mod.6) # that is  Significantly different
 
-summary(poll.mod.5)
+## carry on with  poll.mod.6
 
-poll.mod.5b<-rma.mv(
+
+poll.mod.7<-rma.mv(
   yi=effect,
   V=var, 
-  mods=~Measurement -1, ## 
+  # mods=~Measurement, ## intercept only
   random= ~1|ID/UniqueID,
   struct="CS",
   method="ML",
   digits=4,
   data=poll)
-summary(poll.mod.5b)
+anova(poll.mod.6, poll.mod.7) # not significantly different
 
-## Everything is significantly negative.
-## (except simpson)
+
+anova(poll.mod.1, poll.mod.7) # not different at all
+
+
+
+## The type of GCD doesn't matter, just the measurement
+
+summary(poll.mod.7)
+# the itnercept is significant. 
+# So this is a different result than compared to the invasive species
+
+
+saveRDS(poll.mod.7, file = "Models/pollutionMod.rds")
+
+
+
 
 
 
