@@ -10,7 +10,7 @@ output: html_document
 setwd("C:/Users/helenp/WORK/GCimpactsSB")
 
 
-
+library(Hmisc)
 library(metafor)
 library(ggplot2)
 library(dplyr)
@@ -178,7 +178,8 @@ text(b[,1], par("usr")[3]-15,
 
 For a lot/all of the analyses, I have been grouping micro-arthropods with meso-fauna.
 
-I have been including the 'All sizes' category, but now I am tempted to remove that data from the analyses. 
+I have been including the 'All sizes' category, despite the low number. I have ensured that it is not the intercept level.
+I have merged micro-arthropods with meso-fauna.
 
 
 
@@ -194,7 +195,21 @@ table(allDat$driver, allDat$Measurement)
 ```
 I have removed from the dataset any measurement that didn't fall into these categories, such as evenness measurements, Simpsons, Functional Richness. However, the richness category include all types of richness, e.g., species richness, genus richness and taxa richness. 
 
+
+# Modelling protocol
+
+All models have (nearly) the same starting structure. I have an interaction between GCD(type) and Body Size, with an additive effect of measurement type.
+
+I then use a QM Test of Moderators to see if the interaction, and then the individual moderators are significant (p < 0.01) and remove them if not. 
+
+All models are fitted with REML, which is better (apparently).
+
+
 # Global Driver Model
+
+In the main model, I started with a model that contained the interaction between driver and body size, with the additive effect of measurement type.
+
+Body size was not significant in the interaction or as an additive effect only. So was removed from the model.
 
 
 ```{r mainModlod, include = FALSE}
@@ -223,50 +238,54 @@ In the output, we can see the percentage of total variance attributable to each 
 Overall, this indicates that there is substantial between-study heterogeneity on the third level. Yet, we also see that a large proportion of the total variance, more than one third, can be explained by differences within studies.
 
 ```{r mainModPlot, echo = FALSE}
-test <-predict(mod.2, newmods=rbind(c(0,0,0,0,0,0,0,0),
+mainmodpred <-predict(mod.2, newmods=rbind(c(0,0,0,0,0,0,0,0), # just the abundance
+                           
+                             c(1,0,0,0,0,0,0,0),
+                       
+                             c(0,1,0,0,0,0,0,0),
+                           
+                             c(0,0,1,0,0,0,0,0),
+                            
+                             c(0,0,0,1,0,0,0,0),
+                        
+                             c(0,0,0,0,1,0,0,0)
+                             ), addx=TRUE, digits=2) #
+slabs <- c("Climate", "Fragmentation", "Invasives", "LUI", "Nutrient", "Pollution")
+
+par(mar=c(5, 8, 1, 1))
+forest(mainmodpred$pred, sei=mainmodpred$se, slab=slabs,  xlab="Effect Size", xlim=c(-.4,.7))
+
+
+
+measurementPred  <-predict(mod.2, 
+                           newmods=rbind(c(0,0,0,0,0,0,0,0), # different measurements for climate
                              c(0,0,0,0,0,1,0,0),
                              c(0,0,0,0,0,0,1,0),
-                             c(0,0,0,0,0,0,0,1),  # climate with all different measurement types
-                             c(1,0,0,0,0,0,0,0),
-                             c(1,0,0,0,0,1,0,0),
-                             c(1,0,0,0,0,0,1,0),
-                             c(1,0,0,0,0,0,0,1),# habitat 
-                             c(0,1,0,0,0,0,0,0),
-                             c(0,1,0,0,0,1,0,0),
-                             c(0,1,0,0,0,0,1,0),
-                             c(0,1,0,0,0,0,0,1),  # invasive
-                             c(0,0,1,0,0,0,0,0),
-                             c(0,0,1,0,0,1,0,0),
+                             c(0,0,0,0,0,0,0,1),
+                             c(0,0,1,0,0,0,0,0), 
+                            c(0,0,1,0,0,1,0,0), # lui
                              c(0,0,1,0,0,0,1,0),
-                             c(0,0,1,0,0,0,0,1),  # lui
-                             c(0,0,0,1,0,0,0,0),
-                             c(0,0,0,1,0,1,0,0),
-                             c(0,0,0,1,0,0,1,0),
-                             c(0,0,0,1,0,0,0,1), # nutrient
-                             c(0,0,0,0,1,0,0,0),
-                             c(0,0,0,0,1,1,0,0),
-                             c(0,0,0,0,1,0,1,0),
-                             c(0,0,0,0,1,0,0,1)# pollution
+                             c(0,0,1,0,0,0,0,1)
                              ), addx=TRUE, digits=2) #
 
-slabs <- rep(c("abundance", "biomass", "richness", "shannon"), times = 6)
+
+
+slabs <- rep(c("abundance", "biomass", "richness", "shannon"), times = 2)
 par(mar=c(5, 8, 1, 1))
-forest(test$pred, sei=test$se, slab=slabs,  xlab="Effect Size", xlim=c(-.4,.7))
+forest(measurementPred$pred, sei=measurementPred$se, slab=slabs,  xlab="Effect Size", xlim=c(-.4,.7))
 abline(h=4.5, b=0, lty= 2)
-abline(h=8.5, b=0, lty= 2)
-abline(h=12.5, b=0, lty= 2)
-abline(h=16.5, b=0, lty= 2)
-abline(h=20.5, b=0, lty= 2)
 
+mtext("Climate", side = 2, line = 3, at = 6.5)
+mtext("LUI", side = 2, line = 3, at = 2.7)
 
-mtext("Climate", side = 2, line = 3, at = 22.5)
-mtext("Fragmentation", side = 2, line = 3, at = 18.5, cex = 0.55)
-mtext("Invasives", side = 2, line = 3, at = 14.4, cex = 0.8)
-mtext("LUI", side = 2, line = 3, at = 10.7)
-mtext("Nutrient", side = 2, line = 3, at = 6.5)
-mtext("Pollution", side = 2, line = 3, at = 2)
 
 ```
+
+The top figure shows the impact of each GCD on the abundance value. 
+
+the bottom figure shows the impact of the different measurement types on Climate and LUI only. I chose these two as for LUI, all are significantly different, and for Climate it shows that the different measurement can cause a significant difference in the response.
+
+I am thinking of a two panel plot like this for the paper. Top showing only abundance and bottom showing the impact of measurement type.
 
 
 # Climate Change
@@ -311,98 +330,80 @@ TODO: See if it is always a temperature increase. Maybe need to split temperatur
 
 
 ```{r luiModload, include = FALSE}
-lui.mod.1 <- readRDS(file = "Models/LUIMod.rds")
+lui.mod.2 <- readRDS(file = "Models/LUIMod.rds")
 
 ```
 
 ```{r luiModres}
-summary(lui.mod.1)
+summary(lui.mod.2)
 ```
 
-
-As there are three moderators in this model, I have yet to decide how to actually
-present the results
-
-
-So, for now, I have just shown the impact of GCD type and measurement type on macrofauna
-as macrofauna had the most data
-
 ```{r luires, echo = FALSE}
-luidat <-predict(lui.mod.1, newmods=rbind(c(0,0,0,0,0,0,0,0,0,0,0,1,0,0),
-                                              c(0,0,0,0,0,0,0,0,1,0,0,1,0,0),
-                                              c(0,0,0,0,0,0,0,0,0,1,0,1,0,0),
-                                              c(0,0,0,0,0,0,0,0,0,0,1,1,0,0),  # intercept
+
+
+luidat <-predict(lui.mod.2, newmods=rbind(c(0,0,0,0,0,0,0,0,0),
+                                              c(0,0,0,0,0,0,1,0,0),
+                                              c(0,0,0,0,0,0,0,1,0),
+                                              c(0,0,0,0,0,0,0,0,1),  # intercept
                                               
-                                              c(1,0,0,0,0,0,0,0,0,0,0,1,0,0),
-                                              c(1,0,0,0,0,0,0,0,1,0,0,1,0,0),
-                                              c(1,0,0,0,0,0,0,0,0,1,0,1,0,0),
-                                              c(1,0,0,0,0,0,0,0,0,0,1,1,0,0),# fire
+                                              c(1,0,0,0,0,0,0,0,0),
+                                              c(1,0,0,0,0,0,1,0,0),
+                                              c(1,0,0,0,0,0,0,1,0),
+                                              c(1,0,0,0,0,0,0,0,1),# fire
                                               
-                                              c(0,1,0,0,0,0,0,0,0,0,0,1,0,0),
-                                              c(0,1,0,0,0,0,0,0,1,0,0,1,0,0),
-                                              c(0,1,0,0,0,0,0,0,0,1,0,1,0,0),
-                                              c(0,1,0,0,0,0,0,0,0,0,1,1,0,0),  # grazing   
+                                              c(0,1,0,0,0,0,0,0,0),
+                                              c(0,1,0,0,0,0,1,0,0),
+                                              c(0,1,0,0,0,0,0,1,0),
+                                              c(0,1,0,0,0,0,0,0,1),  # grazing   
                                               
-                                              c(0,0,1,0,0,0,0,0,0,0,0,1,0,0),
-                                              c(0,0,1,0,0,0,0,0,1,0,0,1,0,0),
-                                              c(0,0,1,0,0,0,0,0,0,1,0,1,0,0),
-                                              c(0,0,1,0,0,0,0,0,0,0,1,1,0,0),  # Harvesting
+                                              c(0,0,1,0,0,0,0,0,0),
+                                              c(0,0,1,0,0,0,1,0,0),
+                                              c(0,0,1,0,0,0,0,1,0),
+                                              c(0,0,1,0,0,0,0,0,1),  # Harvesting
                                               
-                                              c(0,0,0,1,0,0,0,0,0,0,0,1,0,0),
-                                              c(0,0,0,1,0,0,0,0,1,0,0,1,0,0),
-                                              c(0,0,0,1,0,0,0,0,0,1,0,1,0,0),
-                                              c(0,0,0,1,0,0,0,0,0,0,1,1,0,0), # Irrigation 
                                               
-                                              c(0,0,0,0,1,0,0,0,0,0,0,1,0,0),
-                                              c(0,0,0,0,1,0,0,0,1,0,0,1,0,0),
-                                              c(0,0,0,0,1,0,0,0,0,1,0,1,0,0),
-                                              c(0,0,0,0,1,0,0,0,0,0,1,1,0,0),# Management
+                                              c(0,0,0,1,0,0,0,0,0),
+                                              c(0,0,0,1,0,0,1,0,0),
+                                              c(0,0,0,1,0,0,0,1,0),
+                                              c(0,0,0,1,0,0,0,0,1),# Management
                                               
-                                              c(0,0,0,0,0,1,0,0,0,0,0,1,0,0),
-                                              c(0,0,0,0,0,1,0,0,1,0,0,1,0,0),
-                                              c(0,0,0,0,0,1,0,0,0,1,0,1,0,0),
-                                              c(0,0,0,0,0,1,0,0,0,0,1,1,0,0),  # Mono
                                               
-                                              c(0,0,0,0,0,0,1,0,0,0,0,1,0,0),
-                                              c(0,0,0,0,0,0,1,0,1,0,0,1,0,0),
-                                              c(0,0,0,0,0,0,1,0,0,1,0,1,0,0),
-                                              c(0,0,0,0,0,0,1,0,0,0,1,1,0,0), # organic
+                                              c(0,0,0,0,1,0,0,0,0),
+                                              c(0,0,0,0,1,0,1,0,0),
+                                              c(0,0,0,0,1,0,0,1,0),
+                                              c(0,0,0,0,1,0,0,0,1), # organic
                                               
-                                              c(0,0,0,0,0,0,0,1,0,0,0,1,0,0),
-                                              c(0,0,0,0,0,0,0,1,1,0,0,1,0,0),
-                                              c(0,0,0,0,0,0,0,1,0,1,0,1,0,0),
-                                              c(0,0,0,0,0,0,0,1,0,0,1,1,0,0)# tillage
+                                              c(0,0,0,0,0,1,0,0,0),
+                                              c(0,0,0,0,0,1,1,0,0),
+                                              c(0,0,0,0,0,1,0,1,0),
+                                              c(0,0,0,0,0,1,0,0,1)# tillage
 ), addx=TRUE, digits=2) #
 
 
 
+luidat_abundance <- luidat[c(seq(1, 28, 4)),]
 
-slabs <- rep(c("abundance", "biomass", "richness", "shannon"), times = 9)
+slabs <- c("Degradation", "Fire", "Grazing", "Harvesting", "Management", "Inorganic", "Tillage")
 par(mar=c(3, 8, 1, 1))
-forest(luidat$pred, sei=luidat$se, slab=slabs,  xlab="Effect Size", xlim=c(-.4,.7))
-abline(h=4.5, b=0, lty= 2)
-abline(h=8.5, b=0, lty= 2)
-abline(h=12.5, b=0, lty= 2)
-abline(h=16.5, b=0, lty= 2)
-abline(h=20.5, b=0, lty= 2)
-abline(h=24.5, b=0, lty= 2)
-abline(h=28.5, b=0, lty= 2)
-abline(h=32.5, b=0, lty= 2)
+forest(luidat_abundance$pred, sei=luidat_abundance$se, slab=slabs,  xlab="Effect Size", xlim=c(-.4,.7))
 
 
-mtext("Degradation", side = 2, line = 3, at = 34.5, cex = 0.5)
-mtext("Fire", side = 2, line = 3, at = 30.5, cex = 0.7)
-mtext("Grazing", side = 2, line = 3, at = 26.4, cex = 0.7)
-mtext("Harvesting", side = 2, line = 3, at = 22.4, cex = 0.5)
-mtext("Irrigation", side = 2, line = 3, at = 18.4, cex = 0.7)
-mtext("Management", side = 2, line = 3,at = 14.4, cex = 0.5)
-mtext("Mono-\nculture", side = 2, line = 3, at = 10.4, cex = 0.7)
-mtext("Inorganic", side = 2, line = 3, at = 6.4, cex = 0.6)
-mtext("Tillage", side = 2, line = 3, at = 2.4, cex = 0.7)
 
+measurement_coefs <- data.frame(meas = c("abundance", "biomass", "richness", "shannon"),
+                                coef = c(0, lui.mod.2$beta[8:10]), 
+                                ses = c(0, lui.mod.2$se[8:10]))
+
+
+measurement_coefs <- measurement_coefs[c(4,3,2,1),]
+
+errbar(x =measurement_coefs$meas, y = measurement_coefs$coef, 
+      yplus = measurement_coefs$coef + measurement_coefs$ses,
+       yminus=measurement_coefs$coef-measurement_coefs$ses, cap=0.015)
+abline(v=0, lty =2)
 
 ```
 
+The top figure is the impact of different GCD types on the abundance metric only. The bottom figure is how the additive effect of the other measurement types varies (compared to the abundance metric).
 
 # Nutrient Enrichment
 
@@ -418,78 +419,40 @@ summary(nutri.mod.2)
 
 ```{r nutriModplot, echo =FALSE}
 
-
-nutridat <-predict(nutri.mod.2, newmods=rbind(c(0,0,0,0,0,0,0,0,0,0,0),
-                                    c(0,0,0,0,0,0,0,0,1,0,0),
-                                    c(0,0,0,0,0,0,0,0,0,1,0),
-                                    c(0,0,0,0,0,0,0,0,0,0,1),  # intercept
-                                    
-                                    c(1,0,0,0,0,0,0,0,0,0,0),
-                                    c(1,0,0,0,0,0,0,0,1,0,0),
-                                    c(1,0,0,0,0,0,0,0,0,1,0),
-                                    c(1,0,0,0,0,0,0,0,0,0,1),# Ca-liming + Wood ash 
-                                    
-                                    c(0,1,0,0,0,0,0,0,0,0,0),
-                                    c(0,1,0,0,0,0,0,0,1,0,0),
-                                    c(0,1,0,0,0,0,0,0,0,1,0),
-                                    c(0,1,0,0,0,0,0,0,0,0,1),  # Compost   
-                                    
-                                    c(0,0,1,0,0,0,0,0,0,0,0),
-                                    c(0,0,1,0,0,0,0,0,1,0,0),
-                                    c(0,0,1,0,0,0,0,0,0,1,0),
-                                    c(0,0,1,0,0,0,0,0,0,0,1),  # Manure + Slurry
-                                    
-                                    c(0,0,0,1,0,0,0,0,0,0,0),
-                                    c(0,0,0,1,0,0,0,0,1,0,0),
-                                    c(0,0,0,1,0,0,0,0,0,1,0),
-                                    c(0,0,0,1,0,0,0,0,0,0,1), # Mixture 
-                                    
-                                    c(0,0,0,0,1,0,0,0,0,0,0),
-                                    c(0,0,0,0,1,0,0,0,1,0,0),
-                                    c(0,0,0,0,1,0,0,0,0,1,0),
-                                    c(0,0,0,0,1,0,0,0,0,0,1),# Other Organic fertilisers
-                                    
-                                    c(0,0,0,0,0,1,0,0,0,0,0),
-                                    c(0,0,0,0,0,1,0,0,1,0,0),
-                                    c(0,0,0,0,0,1,0,0,0,1,0),
-                                    c(0,0,0,0,0,1,0,0,0,0,1),  # residue + Mulch
-                                    
-                                    c(0,0,0,0,0,0,1,0,0,0,0),
-                                    c(0,0,0,0,0,0,1,0,1,0,0),
-                                    c(0,0,0,0,0,0,1,0,0,1,0),
-                                    c(0,0,0,0,0,0,1,0,0,0,1), # Sludge
-                                    
-                                    c(0,0,0,0,0,0,0,1,0,0,0),
-                                    c(0,0,0,0,0,0,0,1,1,0,0),
-                                    c(0,0,0,0,0,0,0,1,0,1,0),
-                                    c(0,0,0,0,0,0,0,1,0,0,1)# Synthetic Fertilizers
+nutridat <-predict(nutri.mod.2, newmods=rbind(c(0,0,0,0,0,0,0),
+                                              # intercept (synthetic Fertilizers)
+                                              c(1,0,0,0,0,0,0),
+                                              #  "Ca-liming + Wood ash"                                         
+                                              c(0,1,0,0,0,0,0),
+                                              # Compost
+                                              c(0,0,1,0,0,0,0),
+                                              # Manure + Slurry 
+                                              c(0,0,0,1,0,0,0),
+                                              # OMixture
+                                              c(0,0,0,0,1,0,0),
+                                              # rOther Organic fertilisers
+                                              c(0,0,0,0,0,1,0),
+                                              # Residue 
+                                              c(0,0,0,0,0,0,1)# Sludge 
 ), addx=TRUE, digits=2) #
 
 
-slabs <- rep(c("abundance", "biomass", "richness", "shannon"), times = 9)
-par(mar=c(3, 8, 1, 1))
-forest(nutridat$pred, sei=nutridat$se, slab=slabs,  xlab="Effect Size", xlim=c(-.4,.7))
-abline(h=4.5, b=0, lty= 2)
-abline(h=8.5, b=0, lty= 2)
-abline(h=12.5, b=0, lty= 2)
-abline(h=16.5, b=0, lty= 2)
-abline(h=20.5, b=0, lty= 2)
-abline(h=24.5, b=0, lty= 2)
-abline(h=28.5, b=0, lty= 2)
-abline(h=32.5, b=0, lty= 2)
+slabs <- c("Synthetic Fertilizers", "Ca-liming + Wood ash", "Compost", "Manure + Slurry", "Mixture", 
+           "Other Organic fertilisers", "Residue + Mulch", "Sludge")
 
 
-mtext("Biochar", side = 2, line = 3, at = 34.5, cex = 0.7)
-mtext("Liming", side = 2, line = 3, at = 30.5, cex = 0.7)
-mtext("Compost", side = 2, line = 3, at = 26.4, cex = 0.7)
-mtext("Manure \n+ \nSlurry", side = 2, line = 3, at = 22.4, cex = 0.7)
-mtext("Mixture", side = 2, line = 3, at = 18.4, cex = 0.7)
-mtext("Organic \nfertilisers", side = 2, line = 3,at = 14.4, cex = 0.7)
+ord <- c(1, 2, 5, 3,8, 4,  7, 6 )
 
 
-mtext("Residue \n+ Mulch", side = 2, line = 3, at = 10.4, cex = 0.7)
-mtext("Sludge", side = 2, line = 3, at = 6.4, cex = 0.7)
-mtext("Synthetic \nFertilizers", side = 2, line = 3, at = 2.4, cex = 0.7)
+errbar(x =slabs[ord], y = nutridat$pred[ord], 
+       yplus = nutridat$ci.ub[ord],
+       yminus=nutridat$ci.lb[ord], 
+       cex = 1.5,
+       ylab = "Effect Size", 
+       xaxt="n")
+abline(v=0, lty =2)
+
+# forest(nutridat$pred, sei=nutridat$se, slab=slabs,  xlab="Effect Size", xlim=c(-.4,.7))
 
 ```
 
@@ -506,7 +469,7 @@ All organisms benefit from this change in structure, regardless of size.
 
 
 ```{r invaModload, include = FALSE}
-invas.mod.4 <- readRDS(file = "Models/invasiveMod.rds")
+invas.mod.3 <- readRDS(file = "Models/invasiveMod.rds")
 ```
 
 Not enough data to look at different measurement types, so I only used the abundance data.
@@ -517,7 +480,7 @@ Where we can see that there is no significant impact of invasive species on soil
 This lines up with main model, as only biomass showed significant impacts.
 
 ```{r invaModres}
-summary(invas.mod.4)
+summary(invas.mod.3)
 ```
 
 
@@ -528,18 +491,108 @@ look indepth at invasive species either.
 
 # Pollution
 
+For the pollution model, I only used data from Metals and Pesticides (in previous iterations I also used all the data split into different types of pollution, and the results were the same). As these had the best spread of data across the body sizes and the measurement types. 
+
+
 ```{r pollModload, include = FALSE}
-poll.mod.7 <- readRDS(file = "Models/pollutionMod.rds")
+poll.mod.1d <- readRDS(file = "Models/pollutionMod.rds")
 ```
 
 
 ```{r pollModres}
-summary(poll.mod.7)
+summary(poll.mod.1d)
 ```
 
-Like the invasive species model, there are not covariates in this model. However, unlike the invasive
-species model, the intercept is significantly different from zero (and negative).
 
-So pollution is have a negative impact, it just doesn't vary by different types, or body size of the soil fauna,
-or by metric (all metrics respond negatively.)
+As with the invasive species. There is no significant moderators. However, the intercept is significantly negative (unlike the invasive species.
 
+This lines up with the main model.
+
+
+
+# GSBA
+
+Seems a bit strange that body size does not have an effect in any of the models.
+
+So, we can look at some of the taxanomic groups, to see if they have differing response. Acari, Collembola, Earthworms and Nematodes have the most data across the different global change drivers.
+
+I created a model, same structure as previous, with an interaction between the drivers and taxa group, with the additive effect of measurement type.
+
+
+```{r gsbamod, include=FALSE}
+
+mod.gsba.taxa <- readRDS(file = "Models/GSBAMod.rds")
+
+```
+
+```{r gsbamod2, echo = FALSE}
+
+summary(mod.gsba.taxa)
+```
+
+We can plot just the changes in abundance. And because habitat fragmentation and invasive species have the least amount of data, we can also exclude them from the plot.
+
+```{r gsbamodplot, echo = FALSE}
+
+t_dat <-predict(mod.gsba.taxa, newmods=rbind(c(0,0,0,0,0, 0,0,0, 0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
+                                                c(0,0,0,0,0, 1,0,0, 0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
+                                                c(0,0,0,0,0, 0,1,0, 0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
+                                                c(0,0,0,0,0, 0,0,1, 0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
+                                              # intercept (climate change)
+                                              
+
+                                                c(0,0,1,0,0, 0,0,0, 0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
+                                                c(0,0,1,0,0, 1,0,0, 0,0,0, 0,0,1,0,0,0,0,0,0,0,0,0,0,0,0),
+                                                c(0,0,1,0,0, 0,1,0, 0,0,0, 0,0,0,0,0,0,0,1,0,0,0,0,0,0,0),
+                                                c(0,0,1,0,0, 0,0,1, 0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,1,0,0),
+                                              # LUI
+                                              
+                                                c(0,0,0,1,0, 0,0,0, 0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
+                                                c(0,0,0,1,0, 1,0,0, 0,0,0, 0,0,0,1,0,0,0,0,0,0,0,0,0,0,0),
+                                                c(0,0,0,1,0, 0,1,0, 0,0,0, 0,0,0,0,0,0,0,0,1,0,0,0,0,0,0),
+                                                c(0,0,0,1,0, 0,0,1, 0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,1,0),
+                                              # NutrientEnrichment
+                                              
+                                                c(0,0,0,0,1, 0,0,0, 0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
+                                                c(0,0,0,0,1, 1,0,0, 0,0,0, 0,0,0,0,1,0,0,0,0,0,0,0,0,0,0),
+                                                c(0,0,0,0,1, 0,1,0, 0,0,0, 0,0,0,0,0,0,0,0,0,1,0,0,0,0,0),
+                                                c(0,0,0,0,1, 0,0,1, 0,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,1)),
+                                              # Pollution 
+                   addx=TRUE, digits=2) #
+
+gcds <- rep(c("Climate", "LUI", "Nutrient", "Pollution"), each = 4)
+taxa <- rep(c("Acari","Collembola", "Earthworms", "Nematodes"), times = 4)
+
+slabs <- paste(gcds, taxa)
+
+par(mar=c(3, 8, 1, 1))
+forest(t_dat$pred, sei=t_dat$se, slab=slabs,  xlab="Effect Size", xlim=c(-.4,.7))
+
+
+```
+
+
+# Conclusions
+
+When we can test the effect, there is no impact of body size on any of the models. This is unexpected.
+
+# PRISMA Diagram
+
+
+
+```{r prismasetup}
+
+library(PRISMAstatement)
+
+prisma(found = 750,
+       found_other = 123,
+       no_dupes = 776, 
+       screened = 776, 
+       screen_exclusions = 13, 
+       full_text = 763,
+       full_text_exclusions = 17, 
+       qualitative = 746, 
+       quantitative = 319,
+       width = 800, height = 800)
+
+```
