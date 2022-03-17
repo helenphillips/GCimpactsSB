@@ -19,7 +19,7 @@ tokeep <- c("ID","Case_ID","CaseDescription",
 "Control_mean","Control_SD","Control_N"     ,         
 "Treatment_mean","Treatment_SD","Treatment_N" ,           
 "Measurement","MeasurementUnits","Error",                  
-"Data_Source","driver")
+"Data_Source","driver", "System")
 
 dat <- dat[,which(names(dat) %in% tokeep)] # 3138 # 3609
 
@@ -204,6 +204,16 @@ dat$Measurement[which(dat$Measurement %in% c("Shannon Equitability"))] <- "Shann
 dat$Measurement[which(dat$Measurement %in% c("Simpson Equitability",  
                                              "Simpsons"))] <- "Simpson"
                                              
+## System -------
+
+table(dat$System)
+
+dat$System[which(dat$System == "Wetland")] <- "Wetlands"
+dat$System[which(dat$System == "Wetlands/Grassland")] <- "Wetlands"
+dat$System[which(dat$System == "high altitude fellfield")] <- "Cold/Dry"
+dat$System[which(dat$System == "subalpine heath")] <- "Cold/Dry"
+dat$System[which(dat$System == "Unknown")] <- ""
+dat$System[which(dat$System == "Grassland/Woody")] <- "Woody"
 
 
 
