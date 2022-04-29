@@ -743,39 +743,50 @@ poll <- merge(poll, fulltext, by.x = "ID", by.y = "PaperID", all.x = TRUE)
 # pollution type
 table(poll$GCDType)
 
-poll$GCDType[which(poll$GCDType %in% c("Chloride, Sodium", "Metals, Radionuclides", "Metals; PAH", 
-                          "Metals; PCBs; PAHs", "Pesticides,Metals"))] <- "Mixture"
-  
-
-aggregate(poll$ID, by = list(GCD = poll$GCDType), function(x) length(unique(x)))
+poll <- poll[which(poll$GCDType %in% c("Metals", "Pesticides")),] # the only two that have
+# enough data/studies across the different pollutant types and body sizes
 
 
-poll <- poll[which(poll$GCDType != ""),]
-poll <- poll[which(poll$GCDType != "Antibiotics"),]
-poll <- poll[which(poll$GCDType != "endocrine disruptors"),]
-poll <- poll[which(poll$GCDType != "Salinization"),]
-poll <- poll[which(poll$GCDType != "Sulphate"),]
-poll <- poll[which(poll$GCDType != "Nanoparticles"),]
-
-
-poll <- poll[which(poll$Body.Size != "All sizes"),]
-
-
-# poll <- poll[which(poll$GCDType %in% c("Metals", "Pesticides")),] 
 
 poll$Body.Size <- as.factor(poll$Body.Size)
 poll$Body.Size <- relevel(poll$Body.Size, ref = "Meso-fauna")
 
 
-aggregate(poll$ID, 
-          by = list(body = poll$Body.Size, GCD = poll$GCDType), 
-          function(x) length(unique(x)))
-
 
 
 # pollution type
-table(poll$GCDType)
+table(poll$GCDType, poll$PollutionSource)
 
+
+
+
+## previously missing
+poll$PollutionSource[which(poll$ID == 105)] <- "Agricultural"
+poll$PollutionSource[which(poll$ID == 2011)] <- "Agricultural"
+poll$PollutionSource[which(poll$ID == 3372)] <- "Others"
+
+## changing to remove multiple sources
+poll$PollutionSource[which(poll$ID == 395)] <- "Mining/Smelting"
+poll$PollutionSource[which(poll$ID == 2433 )] <- "Waste/sewage"
+poll$PollutionSource[which(poll$ID == 1648)] <- "Mining/Smelting"
+poll$PollutionSource[which(poll$ID == 1850)] <- "Mining/Smelting"
+poll$PollutionSource[which(poll$ID == 564)] <- "Industrial"
+poll$PollutionSource[which(poll$ID == 2509)] <- "Industrial"
+poll$PollutionSource[which(poll$ID == 2715)] <- "Urban/transport"
+
+
+poll$PollutionSource[which(poll$PollutionSource == "Agricultural")] <- "Farming"
+poll$PollutionSource[which(poll$PollutionSource == "Agricultural/livestock")] <- "Farming"
+poll$PollutionSource[which(poll$PollutionSource == "Military/wars")] <- "Others"
+poll$PollutionSource[which(poll$PollutionSource == "Natural/geogenic")] <- "Others"
+
+
+
+poll$GCDTypeSource <- paste(poll$GCDType, "-", poll$PollutionSource)
+aggregate(poll$ID, by = list(GCD = poll$GCDTypeSource), function(x) length(unique(x)))
+poll$GCDTypeSource[which(poll$GCDTypeSource == "Pesticides - Industrial")] <- "Pesticides - Others"
+
+table(poll$GCDTypeSource, poll$Body.Size)
 
 
 
@@ -788,10 +799,13 @@ table(poll$GCDType, poll$Body.Size)
 
 
 
-poll.mod.1<-rma.mv(
+poll <- droplevels(poll)
+
+
+poll.mod.10<-rma.mv(
   yi=effect,
   V=var, 
-  mods=~GCDType * Body.Size, ## 
+  mods=~GCDTypeSource * Body.Size, ## 
   random= list(~1|ID/UniqueID, 
                ~ 1 | Measurement),
   struct="CS",
@@ -799,13 +813,13 @@ poll.mod.1<-rma.mv(
   digits=4,
   data=poll)
 
-anova(poll.mod.1, btt = ":") #  significant
-summary(poll.mod.1)
 
-poll.mod.1b<-rma.mv(
+anova(poll.mod.10, btt = ":") #  not significant
+
+poll.mod.11<-rma.mv(
   yi=effect,
   V=var, 
-  mods=~GCDType + Body.Size, ## 
+  mods=~GCDTypeSource + Body.Size, ## 
   random= list(~1|ID/UniqueID, 
                ~ 1 | Measurement),
   struct="CS",
@@ -813,66 +827,10 @@ poll.mod.1b<-rma.mv(
   digits=4,
   data=poll)
 
-anova(poll.mod.1b, btt = "GCD") #  nearly significant
-anova(poll.mod.1b, btt = "Size") #  not significant
 
+anova(poll.mod.11, btt = "GCD") #  nearly significant
+anova(poll.mod.11, btt = "Size") #  not significant
 
-
-poll.mod.1c<-rma.mv(
-  yi=effect,
-  V=var, 
-  mods=~GCDType, ## 
-  random= list(~1|ID/UniqueID, 
-               ~ 1 | Measurement),
-  struct="CS",
-  method="REML",
-  digits=4,
-  data=poll)
-anova(poll.mod.1c, btt = "GCD") #  nearly significant
-
-
-
-
-
-
-poll.mod.1d<-rma.mv(
-  yi=effect,
-  V=var, 
-  # mods=~GCDType, ## 
-  random= list(~1|ID/UniqueID, 
-               ~ 1 | Measurement),
-  struct="CS",
-  method="REML",
-  digits=4,
-  data=poll)
-
-summary(poll.mod.1d)
-
-
-saveRDS(poll.mod.1d, file = "Models/pollutionMod.rds")
-
-
-
-
-
-
-
-
-poll2 <- poll[which(poll$GCDType %in% c("Metals", "Pesticides")),]
-
-poll2.mod.1<-rma.mv(
-  yi=effect,
-  V=var, 
-  mods=~GCDType * Body.Size, ## 
-  random= list(~1|ID/UniqueID, 
-               ~ 1 | Measurement),
-  struct="CS",
-  method="REML",
-  digits=4,
-  data=poll2)
-
-anova(poll2.mod.1, btt = ":") #  not significant
-summary(poll.mod.1)
 
 
 ## ### THINKING ABOUT OTHER COVARIATES
