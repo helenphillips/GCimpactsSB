@@ -210,8 +210,10 @@ table.comparing.captivity.levels <- table.comparing.captivity.levels %>% mutate(
 
 
 table.comparing.captivity.levels <- data.frame(driver = table.comparing.captivity.levels[,1],
-                                               adjusted.mean=table.comparing.captivity.levels[,2],               adjusted.CI=paste0("[",table.comparing.captivity.levels[,3],",",table.comparing.captivity.levels[,4],"]"),
-                                               unadjusted.mean=table.comparing.captivity.levels[,5],                                               unadjusted.CI=paste0("[",table.comparing.captivity.levels[,6],",",table.comparing.captivity.levels[,7],"]"))
+                                               adjusted.mean=table.comparing.captivity.levels[,2],               
+                                               adjusted.CI=paste0("[",table.comparing.captivity.levels[,3],",",table.comparing.captivity.levels[,4],"]"),
+                                               unadjusted.mean=table.comparing.captivity.levels[,5],                                              
+                                               unadjusted.CI=paste0("[",table.comparing.captivity.levels[,6],",",table.comparing.captivity.levels[,7],"]"))
 
 
 

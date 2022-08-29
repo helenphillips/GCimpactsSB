@@ -64,13 +64,13 @@ table(DataCleaned$driver[which(DataCleaned$Treatment_SD   == 0)]) # Mainly lui, 
 
 
 hedges <- escalc(measure = "SMD", # 
-                      m2i = Control_mean, # group 2 corresponds to the control group
-                      sd2i = Control_SD,
-                      n2i = Control_N,
-                      m1i = Treatment_mean, # group 1 is the treatment group
-                      sd1i = Treatment_SD,
-                      n1i = Treatment_N,
-                      data = DataCleaned)
+                 m2i = Control_mean, # group 2 corresponds to the control group
+                 sd2i = Control_SD,
+                 n2i = Control_N,
+                 m1i = Treatment_mean, # group 1 is the treatment group
+                 sd1i = Treatment_SD,
+                 n1i = Treatment_N,
+                 data = DataCleaned)
 ## get a warning message here because of the zeros, which gets dealt with shortly
 # 3440
 
