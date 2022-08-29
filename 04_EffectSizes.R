@@ -1,9 +1,12 @@
+
+
 ## Script to calculate effect sizes
 
 library(Hmisc)
 library(metafor)
 library(ggplot2)
 library(beepr) # to make a sound when a model has finished
+
 
 
 # setwd("~/WORK/GCimpactsSB")
@@ -91,6 +94,13 @@ summary(hedges$var)
 ## What have the high effect sizes and var
 
 head(hedges[which(hedges$effect  > 75),]) # one case, and is legit
+hedges[which(hedges$effect < -50),]
+hedges[which(hedges$effect > 50),]
+
+## remove outliers as they do cause issues, especially in pub bias
+hedges <- hedges[which(hedges$effect > -50),]
+hedges <- hedges[which(hedges$effect < 50),]
+## removes only four cases
 
 
 
@@ -139,7 +149,7 @@ hedges$Body.Size <- relevel(hedges$Body.Size, ref = "Macro-fauna")
 ## TRYING TO ESTABLISH WHETHER ALL EFFECT SIZES CAN BE USED ----------
 
 
-measurement.mod.1<-rma.mv(
+measurement.mod.1 <-rma.mv(
   yi=effect,
   V=var, 
   mods=~Measurement, ## Want to know if sign diff from Abundance
@@ -151,6 +161,7 @@ measurement.mod.1<-rma.mv(
 
 anova(measurement.mod.1, btt = "Measurement") # is significant
 
+saveRDS(measurement.mod.1, file = "Models/MeasurementMod.rds")
 
 
 ## But all responses are negative
@@ -223,6 +234,7 @@ summary(bodysize.mod.1)
 
 
 write.csv(hedges, "Data/03_Data/HedgesData_cleaned.csv")
+# hedges <- read.csv("Data/03_Data/HedgesData_cleaned.csv")
 
 
 
@@ -304,22 +316,133 @@ saveRDS(mod.2, file = "Models/MainMod.rds")
 
 
 
-## Can use this to look at publication bias
-
-test <- hedges[which(hedges$vi < 5),]
-funnel(x = test$effect, vi = test$var, ni = test$Control_N,
-       yaxis="sei")
-
-funnel(x = test$effect, vi = test$var, ni = test$Control_N,
-       yaxis="vi")
-
-
-
 
 funnel(mod.2, main="Standard Error")
 funnel(mod.2, yaxis="vi", main="Sampling Variance")
 funnel(mod.2, yaxis="seinv", main="Inverse Standard Error")
 funnel(mod.2, yaxis="vinv", main="Inverse Sampling Variance")
+
+
+## Using publication bias test from Nakagawa
+hedges$sei <- sqrt(hedges$vi)
+
+## Using the all in approach to check for effect of time
+
+meta <- read.csv("Data/February2022/processed/metadata.csv")
+meta$year <- sapply(strsplit(meta$NameOfPDF,'_'), "[", 2)
+hedges <- merge(hedges, meta[,c('ID', 'year')], by = "ID", all.x = TRUE)
+hedges$year <- as.integer(hedges$year)
+hedges$year[which(is.na(hedges$year))] <- 2015 # just a study that hadn't been inputted fully
+hedges$year.c <- as.vector(scale(hedges$year, scale = F))
+
+
+
+
+# extracting the mean and 95% confidence intervals
+# functions from here: https://github.com/elmacartney/EE_stress_MA/blob/7a46862ea5b015e7dc5d97d9f6952569135e8c8c/R/Old%20files/functions.R
+estimates.CI <- function(model){
+  db.mf <- data.frame(model$b,row.names = 1:nrow(model$b))
+  db.mf <- cbind(db.mf,model$ci.lb,model$ci.ub,row.names(model$b))
+  names(db.mf) <- c("mean","lower","upper","estimate")
+  return(db.mf[,c("estimate","mean","lower","upper")])
+}
+# custom function for extracting mean and CI for emmeans (marginalized means)
+estimates.CI2 <- function(res){
+  db.mf <- data.frame(summary(res)[,2],row.names = 1:length( summary(res)[,2]))
+  db.mf <- cbind(db.mf,summary(res)[,5],summary(res)[,6],paste0(names(res@levels),summary(res)[,1] ))
+  names(db.mf) <- c("mean","lower","upper","estimate")
+  return(db.mf[,c("estimate","mean","lower","upper")])
+}
+
+
+
+# Application of Equation 21 from the main text
+publication.bias.model.r.se <- rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~1 + driver + year.c + sei, ## 
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=hedges)
+
+
+# print(publication.bias.model.r.se,digits=3)
+
+# extracting the mean and 95% confidence intervals
+estimates.publication.bias.model.r.se <- estimates.CI(publication.bias.model.r.se)
+
+
+## Indicates bias
+## Can account for that bias in the estimates
+
+
+
+publication.bias.model.time.allin <- rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~ -1 + year.c + driver + var, ## note var not SEI # no intercept
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=hedges)
+
+
+
+
+# preparation to get marginalized mean (when vi = 0)
+res.publication.bias.model.r.v.1 <- qdrg(object = publication.bias.model.time.allin, data = hedges, at = list(var = 0, year.c = 0))
+# marginalized overall mean at vi = 0 and year.c = 0; also weights = "prop" or "cells" average things over proportionally. if not specified, all groups (levels) get the same weights
+#overall.res.publication.bias.model.r.v.1 <- emmeans(res.publication.bias.model.r.v.1, specs = ~1, df = 104 - 7, weights = "prop") # using effect size - 7 
+
+# marginalised means for different levels for driver
+mm.publication.bias.model.r.v.1 <- emmeans(res.publication.bias.model.r.v.1, specs = "driver")
+
+# comparing with results without correcting for publication bias
+# this model (without the intercept) are whats reported in the manuscript
+publication.bias.model.r.v.1b <-  rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~-1 + driver, ## 
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=hedges)
+
+summary(publication.bias.model.r.v.1b)
+
+
+estimates.publication.bias.model.r.v.1 <- estimates.CI2(mm.publication.bias.model.r.v.1)
+estimates.publication.bias.model.r.v.1b <- estimates.CI(publication.bias.model.r.v.1b)
+
+table.comparing.captivity.levels <- merge(estimates.publication.bias.model.r.v.1,
+                                          estimates.publication.bias.model.r.v.1b,
+                                          by="estimate",
+                                          all.x=T)
+
+# rounding estimates
+table.comparing.captivity.levels <- table.comparing.captivity.levels %>% mutate(across(where(is.numeric), round, 2))
+
+
+table.comparing.captivity.levels <- data.frame(driver = table.comparing.captivity.levels[,1],
+                                               adjusted.mean=table.comparing.captivity.levels[,2],               adjusted.CI=paste0("[",table.comparing.captivity.levels[,3],",",table.comparing.captivity.levels[,4],"]"),
+                                               unadjusted.mean=table.comparing.captivity.levels[,5],                                               unadjusted.CI=paste0("[",table.comparing.captivity.levels[,6],",",table.comparing.captivity.levels[,7],"]"))
+
+
+
+
+
+
+
+
+
+
 
 
 
@@ -363,6 +486,8 @@ table(climate$Body.Size)
 climate <- droplevels(climate[which(climate$Body.Size != "All sizes"),])
 
 
+table(climate$GCDType, climate$GSBA) # to check for taxonomic model
+# Acari, collembola and nematodes are definitrely fine. Earthworms less so
 
 climate.mod.1<-rma.mv(
   yi=effect,
@@ -430,6 +555,85 @@ par(mar=c(3, 8, 1, 1))
 forest(climatedat$pred, sei=climatedat$se, slab=slabs,  xlab="Effect Size", xlim=c(-.4,.7))
 
 
+## climate pub bias
+
+# recentering pub year
+climate$year.c <- as.vector(scale(climate$year, scale = F))
+
+
+
+publication.bias.model.climate.se <- rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~1 + GCDType + year.c + sei, ## 
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=climate)
+
+estimates.publication.bias.model.r.se <- estimates.CI(publication.bias.model.climate.se)
+
+
+## Indicates bias in sei
+## Can account for that bias in the estimates
+
+
+publication.bias.model.climate.allin <- rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~ -1 + year.c + GCDType + var, ## note var not SEI # no intercept
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=climate)
+
+
+
+
+# preparation to get marginalized mean (when vi = 0)
+res.publication.bias.model.r.v.1 <- qdrg(object = publication.bias.model.climate.allin, data = climate, at = list(var = 0, year.c = 0))
+
+# marginalised means for different levels for driver
+mm.publication.bias.model.r.v.1 <- emmeans(res.publication.bias.model.r.v.1, specs = "GCDType")
+
+# comparing with results without correcting for publication bias
+publication.bias.model.r.v.1b <-  rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~-1 + GCDType, ## 
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=climate)
+
+# also use this model for coefficient sin the manuscript
+
+estimates.publication.bias.model.r.v.1 <- estimates.CI2(mm.publication.bias.model.r.v.1)
+estimates.publication.bias.model.r.v.1b <- estimates.CI(publication.bias.model.r.v.1b)
+
+table.comparing.captivity.levels <- merge(estimates.publication.bias.model.r.v.1,
+                                          estimates.publication.bias.model.r.v.1b,
+                                          by="estimate",
+                                          all.x=T)
+
+# rounding estimates
+table.comparing.captivity.levels <- table.comparing.captivity.levels %>% mutate(across(where(is.numeric), round, 2))
+
+
+table.comparing.captivity.levels <- data.frame(driver = table.comparing.captivity.levels[,1],
+                                               adjusted.mean=table.comparing.captivity.levels[,2],               adjusted.CI=paste0("[",table.comparing.captivity.levels[,3],",",table.comparing.captivity.levels[,4],"]"),
+                                               unadjusted.mean=table.comparing.captivity.levels[,5],                                               unadjusted.CI=paste0("[",table.comparing.captivity.levels[,6],",",table.comparing.captivity.levels[,7],"]"))
+
+
+
+
+
 ## LUI -------
 
 lui <- hedges[which(hedges$driver == "LUI"),] # 911
@@ -464,6 +668,10 @@ lui$GCDType <- relevel(as.factor(lui$GCDType), ref = "Grazing")
 
 ## Checking body size
 table(lui$Body.Size)
+
+
+table(lui$GCDType, lui$GSBA) # to check for taxonomic model
+# all four are fine
 
 
 
@@ -501,7 +709,7 @@ lui.mod.2<-rma.mv(
 anova(lui.mod.2, btt = "GCD") # significant
 anova(lui.mod.2, btt = "Size") #  significant
 
-summary(lui.mod.1b)
+summary(lui.mod.2)
 
 
 
@@ -557,6 +765,90 @@ errbar(x =measurement_coefs$meas, y = measurement_coefs$coef,
        yminus=measurement_coefs$coef-measurement_coefs$ses, cap=0.015)
 abline(v=0, lty =2)
 
+
+
+## lui pub bias
+lui$year.c <- as.vector(scale(lui$year, scale = F))
+
+
+
+publication.bias.model.lui.se <- rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~1 + GCDType + Body.Size + year.c + sei, ## 
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=lui)
+
+estimates.publication.bias.model.r.se <- estimates.CI(publication.bias.model.lui.se)
+
+
+## Indicates bias in sei
+## Can account for that bias in the estimates
+
+
+publication.bias.model.lui.allin <- rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~ -1 + year.c + GCDType + Body.Size + var, ## note var not SEI # no intercept
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=lui)
+
+
+
+
+# preparation to get marginalized mean (when vi = 0)
+res.publication.bias.model.r.v.1 <- qdrg(object = publication.bias.model.lui.allin, data = lui, at = list(var = 0, year.c = 0, Body.Size = "Macro-fauna"))
+
+# marginalised means for different levels for driver
+mm.publication.bias.model.r.v.1 <- emmeans(res.publication.bias.model.r.v.1, specs = "GCDType")
+
+# comparing with results without correcting for publication bias
+publication.bias.model.r.v.1b <-  rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~-1 + GCDType + Body.Size, ## 
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=lui)
+
+summary(publication.bias.model.r.v.1b)
+# also using these coefficients in the manuscript
+
+estimates.publication.bias.model.r.v.1 <- estimates.CI2(mm.publication.bias.model.r.v.1)
+estimates.publication.bias.model.r.v.1b <- estimates.CI(publication.bias.model.r.v.1b)
+
+table.comparing.captivity.levels <- merge(estimates.publication.bias.model.r.v.1,
+                                          estimates.publication.bias.model.r.v.1b,
+                                          by="estimate",
+                                          all.x=T)
+
+# rounding estimates
+table.comparing.captivity.levels <- table.comparing.captivity.levels %>% mutate(across(where(is.numeric), round, 2))
+
+
+table.comparing.captivity.levels <- data.frame(driver = table.comparing.captivity.levels[,1],
+                                               adjusted.mean=table.comparing.captivity.levels[,2],               adjusted.CI=paste0("[",table.comparing.captivity.levels[,3],",",table.comparing.captivity.levels[,4],"]"),
+                                               unadjusted.mean=table.comparing.captivity.levels[,5],                                               unadjusted.CI=paste0("[",table.comparing.captivity.levels[,6],",",table.comparing.captivity.levels[,7],"]"))
+
+
+
+
+
+
+
+
+
 ## NUTRIENT ENRICHMENT -------
 
 
@@ -574,11 +866,13 @@ nutri <- nutri[which(nutri$GCDType != "Biochar"),]
 nutri$GCDType <- as.factor(nutri$GCDType)
 nutri$GCDType <- relevel(nutri$GCDType, ref = "Synthetic Fertilizers")
 
+table(nutri$GCDType, nutri$GSBA)
 
 ## Check body size
 table(nutri$Body.Size)
 
-
+table(nutri$GCDType, nutri$GSBA) # to check for taxonomic model
+# acari, earthworms and nematodes are definitely fine. collembola could be better, but not bad
 
 nutri.mod.1<-rma.mv(
   yi=effect,
@@ -663,6 +957,83 @@ par(mar=c(3, 8, 1, 1))
 forest(nutridat$pred, sei=nutridat$se, slab=slabs,  xlab="Effect Size", xlim=c(-.4,.7))
 
 
+## nut enrich pub bias
+nutri$year.c <- as.vector(scale(nutri$year, scale = F))
+
+
+
+publication.bias.model.nutri.se <- rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~1 + GCDType + year.c + sei, ## 
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=nutri)
+
+estimates.publication.bias.model.r.se <- estimates.CI(publication.bias.model.nutri.se)
+
+
+## Indicates bias in sei
+## Can account for that bias in the estimates
+
+
+publication.bias.model.nutri.allin <- rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~ -1 + year.c + GCDType + var, ## note var not SEI # no intercept
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=nutri)
+
+
+
+
+# preparation to get marginalized mean (when vi = 0)
+res.publication.bias.model.r.v.1 <- qdrg(object = publication.bias.model.nutri.allin, data = nutri,
+                                         at = list(var = 0, year.c = 0))
+
+# marginalised means for different levels for driver
+mm.publication.bias.model.r.v.1 <- emmeans(res.publication.bias.model.r.v.1, specs = "GCDType")
+
+# comparing with results without correcting for publication bias
+publication.bias.model.r.v.1b <-  rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~-1 + GCDType, ## 
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=nutri)
+
+summary(publication.bias.model.r.v.1b) # for the manuscript 
+
+estimates.publication.bias.model.r.v.1 <- estimates.CI2(mm.publication.bias.model.r.v.1)
+estimates.publication.bias.model.r.v.1b <- estimates.CI(publication.bias.model.r.v.1b)
+
+table.comparing.captivity.levels <- merge(estimates.publication.bias.model.r.v.1,
+                                          estimates.publication.bias.model.r.v.1b,
+                                          by="estimate",
+                                          all.x=T)
+
+# rounding estimates
+table.comparing.captivity.levels <- table.comparing.captivity.levels %>% mutate(across(where(is.numeric), round, 2))
+
+
+table.comparing.captivity.levels <- data.frame(driver = table.comparing.captivity.levels[,1],
+                                               adjusted.mean=table.comparing.captivity.levels[,2],               adjusted.CI=paste0("[",table.comparing.captivity.levels[,3],",",table.comparing.captivity.levels[,4],"]"),
+                                               unadjusted.mean=table.comparing.captivity.levels[,5],                                               unadjusted.CI=paste0("[",table.comparing.captivity.levels[,6],",",table.comparing.captivity.levels[,7],"]"))
+
+
+
+
 
 
 
@@ -679,6 +1050,9 @@ invas <- invas[which(invas$GCDType != "Plants-mixture"),]
 
 ## Body size
 table(invas$GCDType, invas$Body.Size)
+table(invas$GCDType, invas$GSBA) # to check for taxonomic model
+# as good as can be
+
 
 
 
@@ -727,6 +1101,64 @@ invas.mod.3<-rma.mv(
 
 summary(invas.mod.3) # not significant intercapt
 saveRDS(invas.mod.3, file = "Models/invasiveMod.rds")
+
+
+
+## invasives pub bias
+invas$year.c <- as.vector(scale(invas$year, scale = F))
+
+
+
+publication.bias.model.invas.se <- rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~1 + year.c + sei, ## 
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=invas)
+
+estimates.publication.bias.model.r.se <- estimates.CI(publication.bias.model.invas.se)
+
+
+## Indicates bias in sei
+## Can account for that bias in the estimates
+
+
+publication.bias.model.invas.allin <- rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~1 + year.c + var, ## note var not SEI # no intercept
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=invas)
+
+
+
+# comparing with results without correcting for publication bias
+publication.bias.model.r.v.1b <-  rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~1, ## intercept only model 
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=invas)
+
+summary(publication.bias.model.r.v.1b)
+
+estimates.publication.bias.model.r.v.1 <- estimates.CI(publication.bias.model.invas.allin)
+
+estimates.publication.bias.model.r.v.1b <- estimates.CI(publication.bias.model.r.v.1b)
+# Most previous code doesn't work, because its an intercept only model
+
 
 
 
@@ -789,6 +1221,10 @@ poll$GCDTypeSource[which(poll$GCDTypeSource == "Pesticides - Industrial")] <- "P
 table(poll$GCDTypeSource, poll$Body.Size)
 
 
+table(poll$GCDTypeSource, poll$GSBA) # to check for taxonomic model
+# all four are not bad
+
+
 
 # measurement
 table(poll$GCDType, poll$Measurement)
@@ -800,6 +1236,10 @@ table(poll$GCDType, poll$Body.Size)
 
 
 poll <- droplevels(poll)
+
+saveRDS(poll, file = "Models/pollutionDataFrame.rds")
+
+
 
 
 poll.mod.10<-rma.mv(
@@ -832,6 +1272,190 @@ anova(poll.mod.11, btt = "GCD") #  nearly significant
 anova(poll.mod.11, btt = "Size") #  not significant
 
 
+poll.mod.12<-rma.mv(
+  yi=effect,
+  V=var, 
+ mods=~GCDTypeSource, ## 
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=poll)
+anova(poll.mod.12, btt = "GCD") #  nearly significant
+
+poll.mod.13<-rma.mv(
+  yi=effect,
+  V=var, 
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=poll)
+
+summary(poll.mod.13)
+
+saveRDS(poll.mod.13, file = "Models/pollutionMod.rds")
+
+
+
+
+## pollution pub bias
+poll$year.c <- as.vector(scale(poll$year, scale = F))
+
+
+
+publication.bias.model.poll.se <- rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~1 + year.c + sei, ## 
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=poll)
+
+estimates.publication.bias.model.r.se <- estimates.CI(publication.bias.model.poll.se)
+
+
+## Indicates bias in sei
+## Can account for that bias in the estimates
+
+
+publication.bias.model.poll.allin <- rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~1 + year.c + var, ## note var not SEI # no intercept
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=poll)
+
+
+
+# comparing with results without correcting for publication bias
+publication.bias.model.r.v.1b <-  rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~1, ## intercept only model 
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=poll)
+
+
+estimates.publication.bias.model.r.v.1 <- estimates.CI(publication.bias.model.poll.allin)
+
+estimates.publication.bias.model.r.v.1b <- estimates.CI(publication.bias.model.r.v.1b)
+# Most previous code doesn't work, because its an intercept only model
+
+
+
+
+## Would the pollutant type make a difference if we accounted for bias?
+publication.bias.model.poll.allin_fakemodel <- rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~1 + year.c + var + GCDTypeSource, ## note var not SEI # no intercept
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=poll)
+
+anova(publication.bias.model.poll.allin_fakemodel, btt = "GCD") #  nearly significant
+
+
+
+
+## Looking at the raw values
+
+plot(poll$effect ~ as.factor(poll$GCDTypeSource))
+summary(poll$effect ~ as.factor(poll$GCDTypeSource))
+
+tapply(poll$effect, as.factor(poll$GCDTypeSource), summary)
+
+
+poll[which(poll$effect < -20),]
+poll[which(poll$effect > 20),]
+
+poll_cut <- poll[which(poll$effect > -20),]
+poll_cut <- poll_cut[which(poll_cut$effect < 20),]
+plot(poll_cut$effect ~ as.factor(poll_cut$GCDTypeSource))
+stripchart(poll_cut$effect ~ as.factor(poll_cut$GCDTypeSource),
+           vertical=TRUE,
+           method = "jitter",
+           pch = 19,
+           col = 1:7,
+           add = TRUE)
+
+
+### HABITAT FRAG
+frag <- hedges[which(hedges$driver == "HabitatLoss"),] # 100
+
+table(frag$GCDType)
+frag <- frag[which(frag$GCDType != "Fragmentation per se"),]
+
+table(frag$Measurement)
+table(frag$Measurement, frag$GCDType)
+
+
+table(frag$Body.Size)
+frag <- frag[which(frag$Body.Size != "All sizes"),]
+
+
+table(frag$Body.Size, frag$GCDType) # just not enough data for an interaction
+ 
+
+
+frag.mod1<-rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~GCDType + Body.Size, ## 
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=frag)
+
+anova(frag.mod1, btt = "GCD") #  not significant
+anova(frag.mod1, btt = "Size") #  not significant
+
+frag.mod2<-rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~GCDType, ## 
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=frag)
+
+anova(frag.mod2, btt = "GCD") #  not significant
+
+
+frag.mod3<-rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~1, ## 
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=frag)
+
+
+summary(frag.mod3)
 
 ## ### THINKING ABOUT OTHER COVARIATES
 
@@ -865,7 +1489,7 @@ table(taxa_dat$driver, taxa_dat$GSBA)
 mod.gsba.taxa <-rma.mv(
   yi=effect,
   V=var, 
-  mods=~driver * GSBA, ## 
+  mods=~- 1 + driver * GSBA, ## 
   random= list(~1|ID/UniqueID, 
                ~ 1 | Measurement),
   struct="CS",
@@ -993,3 +1617,134 @@ eggerreg <- rma.mv(std.es.B, var,
 saveRDS(eggerreg, file = "Models/Eggersmod_lea.rds")
 
 plot(std.es.B ~ precision.es.B)
+
+
+
+
+
+
+plot(precision.es.B ~ hedges$effect)
+
+
+
+
+
+## Using Lea's code for each of the GCD individual models.
+
+eggersdat <- hedges
+eggersdat$std.es.B <- eggersdat$effect/sqrt(eggersdat$var)
+eggersdat$se.es.B <-  sqrt(eggersdat$var)
+eggersdat$precision.es.B <- 1/eggersdat$se.es.B
+
+
+# climate
+climate_eggersdat <- eggersdat[which(eggersdat$driver == "Climate"),] # 462
+climate_eggersdat <- climate_eggersdat[which(climate_eggersdat$GCDType != "Vegetation"),]
+climate_eggersdat <- climate_eggersdat[which(climate_eggersdat$GCDType != "Precipitation+Temp"),]
+climate_eggersdat <- climate_eggersdat[which(climate_eggersdat$GCDType != "UVB Radiation"),]
+climate_eggersdat <- droplevels(climate_eggersdat[which(climate_eggersdat$Body.Size != "All sizes"),])
+
+
+climate_eggerreg <- rma.mv(std.es.B, var, 
+                   random =  list(~1|ID/UniqueID, ~ 1 | Measurement),
+                   data = climate_eggersdat,
+                   mods =~ GCDType * precision.es.B)
+saveRDS(climate_eggerreg, file = "Models/ClimateEggersmod_lea.rds")
+# climate_eggerreg <- readRDS("Models/ClimateEggersmod_lea.rds")
+
+# lui
+lui_eggersdat <- eggersdat[which(eggersdat$driver == "LUI"),] # 911
+
+
+lui_eggersdat <- droplevels(lui_eggersdat[which(lui_eggersdat$Body.Size != "All sizes"),])
+lui_eggersdat$GCDType[which(lui_eggersdat$GCDType %in% c("Defoliation"))] <- "Grazing"
+lui_eggersdat$GCDType[which(lui_eggersdat$GCDType %in% c("Intensity", "Landscape", "Management", "Weeding", "Planting", "Intensification"))] <- "Management"
+lui_eggersdat$GCDType[which(lui_eggersdat$GCDType %in% c("Logging"))] <- "Harvesting"
+lui_eggersdat$GCDType[which(lui_eggersdat$GCDType %in% c("Water"))] <- "Irrigation"
+lui_eggersdat$GCDType[which(lui_eggersdat$GCDType %in% c("degradation", "Disturbance"))] <- "Degradation"
+lui_eggersdat <- lui_eggersdat[which(lui_eggersdat$GCDType != "Human population"),]
+lui_eggersdat <- lui_eggersdat[which(lui_eggersdat$GCDType != "Mono- versus poly-culture"),] # too little
+lui_eggersdat <- lui_eggersdat[which(lui_eggersdat$GCDType != "Irrigation"),] # too little
+lui_eggersdat <- lui_eggersdat[which(lui_eggersdat$GCDType != "Management"),] # too little
+lui_eggersdat <- lui_eggersdat[which(lui_eggersdat$GCDType != "Degradation"),] # too little
+lui_eggersdat$GCDType <- relevel(as.factor(lui_eggersdat$GCDType), ref = "Grazing")
+
+
+
+lui_eggerreg <- rma.mv(std.es.B, var, 
+                           random =  list(~1|ID/UniqueID, ~ 1 | Measurement),
+                           data = lui_eggersdat,
+                           mods =~ GCDType * precision.es.B)
+saveRDS(lui_eggerreg, file = "Models/LUIEggersmod_lea.rds")
+
+
+# nutrient
+nutri_eggersdat <- eggersdat[which(eggersdat$driver == "NutrientEnrichment"),] # 820
+
+nutri_eggersdat <- nutri_eggersdat[which(nutri_eggersdat$GCDType != "Biochar"),]
+nutri_eggersdat$GCDType <- as.factor(nutri_eggersdat$GCDType)
+nutri_eggersdat$GCDType <- relevel(nutri_eggersdat$GCDType, ref = "Synthetic Fertilizers")
+
+
+
+nutri_eggerreg <- rma.mv(std.es.B, var, 
+                       random =  list(~1|ID/UniqueID, ~ 1 | Measurement),
+                       data = nutri_eggersdat,
+                       mods =~ GCDType * precision.es.B)
+saveRDS(nutri_eggerreg, file = "Models/NutriEggersmod_lea.rds")
+
+
+# invasives
+invas_eggersdat <- eggersdat[which(eggersdat$driver == "Invasives"),] # 188
+invas_eggersdat <- invas_eggersdat[which(invas_eggersdat$GCDType != "Plants-mixture"),]
+
+invas_eggerreg <- rma.mv(std.es.B, var, 
+                         random =  list(~1|ID/UniqueID, ~ 1 | Measurement),
+                         data = invas_eggersdat,
+                         mods =~ GCDType * precision.es.B)
+saveRDS(invas_eggerreg, file = "Models/InvasEggersmod_lea.rds")
+
+
+# pollution
+poll_eggersdat <- eggersdat[which(eggersdat$driver == "Pollution"),] # 850
+
+
+fulltext <- read.csv("Data/April2022/Full Text Screening - Sheet1.csv")
+fulltext <- fulltext[,c('PaperID', 'PollutionSource')]
+
+poll_eggersdat <- merge(poll_eggersdat, fulltext, by.x = "ID", by.y = "PaperID", all.x = TRUE)
+
+poll_eggersdat <- poll_eggersdat[which(poll_eggersdat$GCDType %in% c("Metals", "Pesticides")),] 
+
+
+## previously missing
+poll_eggersdat$PollutionSource[which(poll_eggersdat$ID == 105)] <- "Agricultural"
+poll_eggersdat$PollutionSource[which(poll_eggersdat$ID == 2011)] <- "Agricultural"
+poll_eggersdat$PollutionSource[which(poll_eggersdat$ID == 3372)] <- "Others"
+
+## changing to remove multiple sources
+poll_eggersdat$PollutionSource[which(poll_eggersdat$ID == 395)] <- "Mining/Smelting"
+poll_eggersdat$PollutionSource[which(poll_eggersdat$ID == 2433 )] <- "Waste/sewage"
+poll_eggersdat$PollutionSource[which(poll_eggersdat$ID == 1648)] <- "Mining/Smelting"
+poll_eggersdat$PollutionSource[which(poll_eggersdat$ID == 1850)] <- "Mining/Smelting"
+poll_eggersdat$PollutionSource[which(poll_eggersdat$ID == 564)] <- "Industrial"
+poll_eggersdat$PollutionSource[which(poll_eggersdat$ID == 2509)] <- "Industrial"
+poll_eggersdat$PollutionSource[which(poll_eggersdat$ID == 2715)] <- "Urban/transport"
+
+
+poll_eggersdat$PollutionSource[which(poll_eggersdat$PollutionSource == "Agricultural")] <- "Farming"
+poll_eggersdat$PollutionSource[which(poll_eggersdat$PollutionSource == "Agricultural/livestock")] <- "Farming"
+poll_eggersdat$PollutionSource[which(poll_eggersdat$PollutionSource == "Military/wars")] <- "Others"
+poll_eggersdat$PollutionSource[which(poll_eggersdat$PollutionSource == "Natural/geogenic")] <- "Others"
+
+
+poll_eggersdat$GCDTypeSource <- paste(poll_eggersdat$GCDType, "-", poll_eggersdat$PollutionSource)
+poll_eggersdat$GCDTypeSource[which(poll_eggersdat$GCDTypeSource == "Pesticides - Industrial")] <- "Pesticides - Others"
+
+poll_eggerreg <- rma.mv(std.es.B, var, 
+                         random =  list(~1|ID/UniqueID, ~ 1 | Measurement),
+                         data = poll_eggersdat,
+                         mods =~ GCDTypeSource * precision.es.B)
+saveRDS(poll_eggerreg, file = "Models/PollEggersmod_lea.rds")
+
+
