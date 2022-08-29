@@ -111,6 +111,22 @@ head(hedges[which(hedges$var > 10),])
 
 
 
+## Adding in variables that will be needed for publication bias analyses
+## Using publication bias test from Nakagawa
+hedges$sei <- sqrt(hedges$vi)
+
+## Using the all in approach to check for effect of time
+
+meta <- read.csv("Data/February2022/processed/metadata.csv")
+meta$year <- sapply(strsplit(meta$NameOfPDF,'_'), "[", 2)
+hedges <- merge(hedges, meta[,c('ID', 'year')], by = "ID", all.x = TRUE)
+hedges$year <- as.integer(hedges$year)
+hedges$year[which(is.na(hedges$year))] <- 2015 # just a study that hadn't been inputted fully
+hedges$year.c <- as.vector(scale(hedges$year, scale = F))
+
+
+
+
 
 # Save data
 write.csv(hedges, "Data/03_Data/HedgesData.csv")
