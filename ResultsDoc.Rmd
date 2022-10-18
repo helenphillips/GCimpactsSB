@@ -463,15 +463,22 @@ look indepth at invasive species either.
 
 # Pollution
 
-For the pollution model, the results depend on exactly which split of the data we use. If I only used data from Metals and Pesticides, these had the most equal spread of data across the body sizes and the measurement types. 
+For the pollution model, I only used data from Metals and Pesticides, these had the most equal spread of data across the body sizes and the measurement types. I then split up the source of the pollution, e.g., industrial, agricultural, urban. 
 
 
 ```{r pollModload, include = FALSE}
+poll <- readRDS(file = "Models/pollutionDataFrame.rds")
+
 poll.mod.1d <- readRDS(file = "Models/pollutionMod.rds")
+
 ```
 
 
 ```{r pollModres}
+# the original GCD Type
+
+table(poll$GCDTypeSource)
+
 summary(poll.mod.1d)
 ```
 
@@ -482,134 +489,7 @@ This lines up with the main model.
 
 Highlights that of the pollutants we can test, they are as bad as each other. Discussion point will be that we need more data in order to test the effects across even more pollutant types.
 
-
-But if we take data from everything except the pollutant types which have minimal data
-
-```{r pollution1}
-
-poll <- allDat[which(allDat$driver == "Pollution"),] # 850
-
-# pollution type
-poll$GCDType[which(poll$GCDType %in% c("Chloride, Sodium", "Metals, Radionuclides", "Metals; PAH", 
-                          "Metals; PCBs; PAHs", "Pesticides,Metals"))] <- "Mixture"
-
-table(poll$GCDType)
-poll <- poll[which(poll$GCDType != ""),]
-poll <- poll[which(poll$GCDType != "Antibiotics"),]
-poll <- poll[which(poll$GCDType != "endocrine disruptors"),]
-poll <- poll[which(poll$GCDType != "Salinization"),]
-poll <- poll[which(poll$GCDType != "Sulphate"),]
-
-poll <- poll[which(poll$Body.Size != "All sizes"),]
-poll$Body.Size <- as.factor(poll$Body.Size)
-poll$Body.Size <- relevel(poll$Body.Size, ref = "Meso-fauna")
-
-
-poll.mod.1<-rma.mv(
-  yi=effect,
-  V=var, 
-  mods=~GCDType * Body.Size, ## 
-  random= list(~1|ID/UniqueID, 
-               ~ 1 | Measurement),
-  struct="CS",
-  method="REML",
-  digits=4,
-  data=poll)
-
-anova(poll.mod.1, btt = ":") #  significant
-summary(poll.mod.1)
-
-table(poll$Body.Size, poll$GCDType)
-
-```
-
-So, if we include more pollutants, then the interaction between pollutant type and body is significant.
-
-If we remove any pollutants that have less than 20 data points, and re-run the model.
-
-```{r pollution2}
-
-poll <- poll[which(poll$GCDType != "PAH"),]
-poll <- poll[which(poll$GCDType != "Pharmaceuticals"),]
-
-
-poll.mod.1<-rma.mv(
-  yi=effect,
-  V=var, 
-  mods=~GCDType * Body.Size, ## 
-  random= list(~1|ID/UniqueID, 
-               ~ 1 | Measurement),
-  struct="CS",
-  method="REML",
-  digits=4,
-  data=poll)
-
-anova(poll.mod.1, btt = ":") #  significant
-summary(poll.mod.1)
-
-
-```
-
-Still significant interaction between type and body size.
-
-But what if we only use metals and pesticides. These have the largest amount of data.
-
-```{r pollution3}
-
-
-
-
-poll2 <- poll[which(poll$GCDType %in% c("Metals", "Pesticides")),]
-
-poll2.mod.1<-rma.mv(
-  yi=effect,
-  V=var, 
-  mods=~GCDType * Body.Size, ## 
-  random= list(~1|ID/UniqueID, 
-               ~ 1 | Measurement),
-  struct="CS",
-  method="REML",
-  digits=4,
-  data=poll2)
-
-anova(poll2.mod.1, btt = ":") #  not significant
-summary(poll.mod.1)
-
-
-poll2.mod.1b<-rma.mv(
-  yi=effect,
-  V=var, 
-  mods=~GCDType + Body.Size, ## 
-  random= list(~1|ID/UniqueID, 
-               ~ 1 | Measurement),
-  struct="CS",
-  method="REML",
-  digits=4,
-  data=poll2)
-
-anova(poll2.mod.1b, btt = "GCD") #  not significant
-anova(poll2.mod.1b, btt = "Size") #  not significant
-
-
-
-poll2.mod.1c<-rma.mv(
-  yi=effect,
-  V=var, 
-  mods=~GCDType, ## 
-  random= list(~1|ID/UniqueID, 
-               ~ 1 | Measurement),
-  struct="CS",
-  method="REML",
-  digits=4,
-  data=poll2)
-anova(poll2.mod.1c, btt = "GCD") #  not significant
-
-
-```
-
-
-So, depending on how stringent we are with the cut of data used, the results can vary quite a lot.
-
+However, this was only using data from pesticides and metals, where each is also split by the source of the pollution (e.g., industrial, mining, urban, other). So we would need more different pollutant types to fully understand the effect of the pollution on soil fauna, and whether it really doesn't matter what pollutant it is.
 
 
 # GSBA
@@ -761,10 +641,11 @@ All of them are somewhat bad, having outliers that make everything look worse th
 Climate change has the most obviously outliers. Pollution has the most consistent/gradient of outliers.
 Need to look through the outliers and double check that they are not typos etc.
 
-The meta-analysis hand book suggests an eggers Regression test to determine whether there is assymetry in the publications.
+The meta-analysis hand book suggests an eggers Regression test to determine whether there is asymmetry in the publications.
 
 This page: https://stats.stackexchange.com/questions/155693/metafor-package-bias-and-sensitivity-diagnostics gave information on how to do this with a more complex model.
 
+In this model, 'mods' is the variance of the effect size.
 
 
 ```{r eggers}
@@ -776,6 +657,12 @@ summary(test.egger)
 
 So there is asymmetry in the publications.
 
+The next chunk uses the code that Lea sent to produce a similar Egger's analysis. 
+I am not entirely sure what it means yet. But think it shows similar to the funnel plot, 
+in that all GCDs are an issue, except the invasives.
+
+
+
 ```{r biasfromLEa}
 
 eggereg <- readRDS(file = "Models/Eggersmod_lea.rds")
@@ -783,3 +670,28 @@ eggereg <- readRDS(file = "Models/Eggersmod_lea.rds")
 summary(eggereg)
 ```
 
+So ultimately, we are missing the studies that have low precisions (low power, low sample size) and larger effect sizes. We have a lot of studies with high precision and a variety of effect sizes.
+
+We also have a lot of outliers, that show big effect sizes and low preicision. A lot of these are in pollution and climate change.
+
+There is also probably something to say, that the largest outliers are negative effect sizes.....
+
+```{r differingGCDs}
+
+climate_eggerreg <- readRDS("Models/ClimateEggersmod_lea.rds")
+summary(climate_eggerreg)
+
+lui_eggerreg <- readRDS("Models/LUIEggersmod_lea.rds")
+summary(lui_eggerreg)
+
+nutri_eggerreg <- readRDS("Models/NutriEggersmod_lea.rds")
+summary(nutri_eggerreg)
+
+invas_eggerreg <- readRDS("Models/InvasEggersmod_lea.rds")
+summary(invas_eggerreg)
+
+poll_eggerreg <- readRDS("Models/PollEggersmod_lea.rds")
+summary(poll_eggerreg)
+
+
+```
