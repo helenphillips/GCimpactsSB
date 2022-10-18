@@ -4,6 +4,8 @@ library(Hmisc)
 library(metafor)
 library(ggplot2)
 library(beepr) # to make a sound when a model has finished
+library(emmeans)
+library(dplyr)
 
 setwd("C:/Users/helenp/WORK/GCimpactsSB")
 
@@ -30,7 +32,7 @@ estimates.CI2 <- function(res){
 
 
 ## NUTRIENT ENRICHMENT -------
-
+hedges <- read.csv("Data/03_Data/HedgesData_cleaned.csv")
 
 
 nutri <- hedges[which(hedges$driver == "NutrientEnrichment"),] # 820
@@ -102,39 +104,6 @@ anova(nutri.mod.2, btt = "GCD") #  significant
 
 
 saveRDS(nutri.mod.2, file = "Models/nutriMod.rds")
-
-
-
-nutridat <-predict(nutri.mod.2, newmods=rbind(c(0,0,0,0,0,0,0),
-                                              # intercept (synthetic Fertilizers)
-                                              
-                                              
-                                              c(1,0,0,0,0,0,0),
-                                              #  "Ca-liming + Wood ash"                                         
-                                              
-                                              c(0,1,0,0,0,0,0),
-                                              # Compost
-                                              
-                                              c(0,0,1,0,0,0,0),
-                                              # Manure + Slurry 
-                                              
-                                              c(0,0,0,1,0,0,0),
-                                              # Mixture
-                                              
-                                              c(0,0,0,0,1,0,0),
-                                              # rOther Organic fertilisers
-                                              
-                                              c(0,0,0,0,0,1,0),
-                                              # Residue 
-                                              
-                                              c(0,0,0,0,0,0,1)# Sludge 
-), addx=TRUE, digits=2) #
-
-
-slabs <- c("Synthetic Fertilizers", "Ca-liming + Wood ash", "Compost", "Manure + Slurry", "Mixture", 
-           "Other Organic fertilisers", "Residue + Mulch", "Sludge")
-par(mar=c(3, 8, 1, 1))
-forest(nutridat$pred, sei=nutridat$se, slab=slabs,  xlab="Effect Size", xlim=c(-.4,.7))
 
 
 ## nut enrich pub bias

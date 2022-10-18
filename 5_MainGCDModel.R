@@ -5,6 +5,8 @@ library(Hmisc)
 library(metafor)
 library(ggplot2)
 library(beepr) # to make a sound when a model has finished
+library(emmeans)
+library(dplyr)
 
 setwd("C:/Users/helenp/WORK/GCimpactsSB")
 
@@ -121,7 +123,7 @@ anova(mod.2, btt = "driver") # significant
 
 
 ## we stick with mod.2
-saveRDS(mod.2, file = "Models/MainMod.rds")
+saveRDS(mod.2, file = "Models/MainMod_rerun.rds")
 
 
 
@@ -218,6 +220,29 @@ table.comparing.captivity.levels <- data.frame(driver = table.comparing.captivit
 
 
 
+## i2 of model
+# https://www.metafor-project.org/doku.php/tips:i2_multilevel_multivariate
+W <- diag(1/mod.2$vi)
+X <- model.matrix(mod.2)
+P <- W - W %*% X %*% solve(t(X) %*% W %*% X) %*% t(X) %*% W
+100 * sum(mod.2$sigma2) / (sum(mod.2$sigma2) + (mod.2$k-mod.2$p)/sum(diag(P)))
+
+
+# 86.30% of the total variance due to heterogeneity.
+
+
+100 * mod.2$sigma2 / (sum(mod.2$sigma2) + (mod.2$k-mod.2$p)/sum(diag(P)))
+
+
+
+
+# About 48.35% of the total variance is estimated to be due to between-cluster heterogeneity, 
+# 36.89% due to within-cluster heterogeneity 
+# and only 1.06% due to the crossed effects. 
+
+100 - sum(100 * mod.2$sigma2 / (sum(mod.2$sigma2) + (mod.2$k-mod.2$p)/sum(diag(P))))
+
+# The remaining 13.67% is sampling variance.
 
 
 

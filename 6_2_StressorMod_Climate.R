@@ -4,6 +4,8 @@ library(Hmisc)
 library(metafor)
 library(ggplot2)
 library(beepr) # to make a sound when a model has finished
+library(emmeans)
+library(dplyr)
 
 setwd("C:/Users/helenp/WORK/GCimpactsSB")
 
@@ -31,6 +33,7 @@ estimates.CI2 <- function(res){
 
 ## Climate change
 
+hedges <- read.csv("Data/03_Data/HedgesData_cleaned.csv")
 
 
 climate <- hedges[which(hedges$driver == "Climate"),] # 462
@@ -97,6 +100,7 @@ climate.mod.5<-rma.mv(
   method="ML",
   digits=4,
   data=climate)
+anova(climate.mod.5, btt = "GCD") # maybe not significant
 
 
 ## Use climate.mod.5
@@ -107,18 +111,6 @@ qqnorm(residuals(climate.mod.5,type="pearson"),main="QQ plot: residuals")
 qqline(residuals(climate.mod.5,type="pearson"),col="red") # fine
 
 
-
-
-climatedat <-predict(climate.mod.5, newmods=rbind(c(0,0,0),
-                                                  c(1,0,0),
-                                                  c(0,1,0),
-                                                  c(0,0,1)
-), addx=TRUE, digits=2) #
-
-slabs <- c("Gas", "Temperature",
-           "Water Availability-Drought", "Water Availability-Flood")
-par(mar=c(3, 8, 1, 1))
-forest(climatedat$pred, sei=climatedat$se, slab=slabs,  xlab="Effect Size", xlim=c(-.4,.7))
 
 
 ## climate pub bias

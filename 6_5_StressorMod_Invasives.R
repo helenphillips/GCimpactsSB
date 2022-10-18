@@ -4,6 +4,8 @@ library(Hmisc)
 library(metafor)
 library(ggplot2)
 library(beepr) # to make a sound when a model has finished
+library(emmeans)
+library(dplyr)
 
 setwd("C:/Users/helenp/WORK/GCimpactsSB")
 
@@ -31,6 +33,7 @@ estimates.CI2 <- function(res){
 
 
 ## Invasives
+hedges <- read.csv("Data/03_Data/HedgesData_cleaned.csv")
 
 invas <- hedges[which(hedges$driver == "Invasives"),] # 188
 

@@ -5,6 +5,8 @@ library(Hmisc)
 library(metafor)
 library(ggplot2)
 library(beepr) # to make a sound when a model has finished
+library(emmeans)
+library(dplyr)
 
 setwd("C:/Users/helenp/WORK/GCimpactsSB")
 
@@ -30,8 +32,9 @@ estimates.CI2 <- function(res){
 
 
 ## LUI -------
+hedges <- read.csv("Data/03_Data/HedgesData_cleaned.csv")
 
-lui <- hedges[which(hedges$driver == "LUI"),] # 911
+lui <- hedges[which(hedges$driver == "LUI"),] 
 
 
 lui <- droplevels(lui[which(lui$Body.Size != "All sizes"),])
@@ -111,54 +114,9 @@ summary(lui.mod.2)
 
 
 ## final model
-saveRDS(lui.mod.2, file = "Models/LUIMod.rds")
+saveRDS(lui.mod.2, file = "Models/LUIMod_redo.rds")
 
 
-
-
-luidat <-predict(lui.mod.2, newmods=rbind(c(0,0,0,0,0,0),  # intercept
-                                          c(0,0,0,0,1,0),
-                                          c(0,0,0,0,0,1),
-                                          
-                                          c(1,0,0,0,0,0),# fire
-                                          c(1,0,0,0,1,0),
-                                          c(1,0,0,0,0,1),
-                                          
-                                          c(0,1,0,0,0,0), 
-                                          c(0,1,0,0,1,0),
-                                          c(0,1,0,0,0,1),# Harvesting   
-                                          
-                                          c(0,0,1,0,0,0),
-                                          c(0,0,1,0,1,0),
-                                          c(0,0,1,0,0,1),# organic
-                                          
-                                          c(0,0,0,1,0,0),
-                                          c(0,0,0,1,1,0),
-                                          c(0,0,0,1,0,1)# tillage
-), addx=TRUE, digits=2) #
-
-macro <- c(1, 4, 7, 10, 13) #3 just the macrofauna
-
-
-slabs <- c("Grazing", "Fire", "Harvesting", "Inorganic", "Tillage")
-par(mar=c(3, 8, 1, 1))
-forest(luidat$pred[macro], sei=luidat$se[macro], slab=slabs,  xlab="Effect Size", xlim=c(-.4,.7))
-
-
-
-#3 Just showing the impact of body size
-
-measurement_coefs <- data.frame(meas = c("Macro-fauna", "Meso-fauna", "Micro-fauna"),
-                                coef = c(0, lui.mod.2$beta[6:7]), 
-                                ses = c(0, lui.mod.2$se[6:7]))
-
-
-measurement_coefs <- measurement_coefs[c(3,2,1),]
-
-errbar(x =measurement_coefs$meas, y = measurement_coefs$coef, 
-       yplus = measurement_coefs$coef + measurement_coefs$ses,
-       yminus=measurement_coefs$coef-measurement_coefs$ses, cap=0.015)
-abline(v=0, lty =2)
 
 
 

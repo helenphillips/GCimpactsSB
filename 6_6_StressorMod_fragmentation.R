@@ -4,6 +4,9 @@ library(Hmisc)
 library(metafor)
 library(ggplot2)
 library(beepr) # to make a sound when a model has finished
+library(emmeans)
+library(dplyr)
+
 
 setwd("C:/Users/helenp/WORK/GCimpactsSB")
 
@@ -30,6 +33,8 @@ estimates.CI2 <- function(res){
 
 
 ### HABITAT FRAG
+hedges <- read.csv("Data/03_Data/HedgesData_cleaned.csv")
+
 frag <- hedges[which(hedges$driver == "HabitatLoss"),] # 100
 
 table(frag$GCDType)
@@ -88,3 +93,4 @@ frag.mod3<-rma.mv(
 
 
 summary(frag.mod3)
+

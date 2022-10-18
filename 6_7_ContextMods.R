@@ -5,6 +5,7 @@ library(metafor)
 library(ggplot2)
 library(beepr) # to make a sound when a model has finished
 
+
 setwd("C:/Users/helenp/WORK/GCimpactsSB")
 
 
@@ -32,6 +33,7 @@ estimates.CI2 <- function(res){
 
 
 ## ### THINKING ABOUT OTHER COVARIATES
+hedges <- read.csv("Data/03_Data/HedgesData_cleaned.csv")
 
 
 
@@ -63,7 +65,7 @@ table(taxa_dat$driver, taxa_dat$GSBA)
 mod.gsba.taxa <-rma.mv(
   yi=effect,
   V=var, 
-  mods=~- 1 + driver * GSBA, ## 
+  mods=~ driver * GSBA, ## 
   random= list(~1|ID/UniqueID, 
                ~ 1 | Measurement),
   struct="CS",
@@ -79,54 +81,20 @@ summary(mod.gsba.taxa)
 saveRDS(mod.gsba.taxa, file = "Models/GSBAMod.rds")
 
 
-t_dat <-predict(mod.gsba.taxa, newmods=rbind(c(0,0,0,0,0, 0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
-                                             c(0,0,0,0,0, 1,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
-                                             c(0,0,0,0,0, 0,1,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
-                                             c(0,0,0,0,0, 0,0,1,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
-                                             # intercept (climate change)
-                                             
-                                             
-                                             c(1,0,0,0,0, 0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
-                                             c(1,0,0,0,0, 1,0,0,  1,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
-                                             c(1,0,0,0,0, 0,1,0,  0,0,0,0,0,1,0,0,0,0,0,0,0,0,0),
-                                             c(1,0,0,0,0, 0,0,1,  0,0,0,0,0,0,0,0,0,0,1,0,0,0,0),
-                                             #  HabitatLoss                                        
-                                             
-                                             c(0,1,0,0,0, 0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
-                                             c(0,1,0,0,0, 1,0,0,  0,1,0,0,0,0,0,0,0,0,0,0,0,0,0),
-                                             c(0,1,0,0,0, 0,1,0,  0,0,0,0,0,0,1,0,0,0,0,0,0,0,0),
-                                             c(0,1,0,0,0, 0,0,1,  0,0,0,0,0,0,0,0,0,0,0,1,0,0,0),
-                                             # Invasives 
-                                             
-                                             c(0,0,1,0,0, 0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
-                                             c(0,0,1,0,0, 1,0,0,  0,0,1,0,0,0,0,0,0,0,0,0,0,0,0),
-                                             c(0,0,1,0,0, 0,1,0, 0,0,0,0,0,0,0,1,0,0,0,0,0,0,0),
-                                             c(0,0,1,0,0, 0,0,1,  0,0,0,0,0,0,0,0,0,0,0,0,1,0,0),
-                                             # LUI
-                                             
-                                             c(0,0,0,1,0, 0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
-                                             c(0,0,0,1,0, 1,0,0,  0,0,0,1,0,0,0,0,0,0,0,0,0,0,0),
-                                             c(0,0,0,1,0, 0,1,0,  0,0,0,0,0,0,0,0,1,0,0,0,0,0,0),
-                                             c(0,0,0,1,0, 0,0,1,  0,0,0,0,0,0,0,0,0,0,0,0,0,1,0),
-                                             # NutrientEnrichment
-                                             
-                                             c(0,0,0,0,1, 0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
-                                             c(0,0,0,0,1, 1,0,0,  0,0,0,0,1,0,0,0,0,0,0,0,0,0,0),
-                                             c(0,0,0,0,1, 0,1,0,  0,0,0,0,0,0,0,0,0,1,0,0,0,0,0),
-                                             c(0,0,0,0,1, 0,0,1,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,1)),
-                # Pollution 
-                addx=TRUE, digits=2) #
 
-gcds <- rep(c("Climate", "habitat", "invasives", "lui", "nutrient", "pollution"), each = 4)
-taxa <- rep(c("acari","collembola", "earthworms", "nematodes"), times = 6)
+mod.gsba.taxa_nointercept <-rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~ -1 + driver * GSBA, ## 
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=taxa_dat)
+# for the manuscript
 
-slabs <- paste(gcds, taxa)
-
-# exclude habitat frag and invasives (little data)
-subs <- c(1:4, 13:24)
-
-par(mar=c(3, 8, 1, 1))
-forest(t_dat$pred[subs], sei=t_dat$se[subs], slab=slabs[subs],  xlab="Effect Size", xlim=c(-.4,.7))
+beep()
 
 
 ## ### THINKING ABOUT OTHER COVARIATES - habitat

@@ -4,6 +4,8 @@ library(Hmisc)
 library(metafor)
 library(ggplot2)
 library(beepr) # to make a sound when a model has finished
+library(emmeans)
+library(dplyr)
 
 setwd("C:/Users/helenp/WORK/GCimpactsSB")
 
@@ -32,16 +34,29 @@ estimates.CI2 <- function(res){
 
 
 ### POLLUTION
+
+hedges <- read.csv("Data/03_Data/HedgesData_cleaned.csv")
+
 poll <- hedges[which(hedges$driver == "Pollution"),] # 850
 
 
-fulltext <- read.csv("Data/April2022/Full Text Screening - Sheet1.csv")
+fulltext <- read.csv("Data/September2022/Full Text Screening - Sheet1.csv")
 fulltext <- fulltext[,c('PaperID', 'PollutionSource')]
 
 poll <- merge(poll, fulltext, by.x = "ID", by.y = "PaperID", all.x = TRUE)
 
 # pollution type
 table(poll$GCDType)
+
+
+# paper id 3150 has a mistake, where chloroform has been marked as a pesticide
+
+
+poll$GCDType[grep("chloroform", poll$CaseDescription)] <- "Chloroform"
+
+
+poll$GCDType[poll$ID == 467] <- "Pesticide,Antibiotics"
+
 
 poll <- poll[which(poll$GCDType %in% c("Metals", "Pesticides")),] # the only two that have
 # enough data/studies across the different pollutant types and body sizes
@@ -110,10 +125,26 @@ saveRDS(poll, file = "Models/pollutionDataFrame.rds")
 
 
 
-poll.mod.10<-rma.mv(
+## going back to metals vs pesticides
+
+
+poll.mod.20<-rma.mv(
   yi=effect,
   V=var, 
-  mods=~GCDTypeSource * Body.Size, ## 
+  mods=~GCDType * Body.Size, ## 
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=poll)
+anova(poll.mod.20, btt = ":") #   not significant
+
+
+poll.mod.21<-rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~GCDType + Body.Size, ## 
   random= list(~1|ID/UniqueID, 
                ~ 1 | Measurement),
   struct="CS",
@@ -121,52 +152,26 @@ poll.mod.10<-rma.mv(
   digits=4,
   data=poll)
 
+anova(poll.mod.21, btt = "Size") # not  significant
+anova(poll.mod.21, btt = "GCD") #   significant
 
-anova(poll.mod.10, btt = ":") #  not significant
 
-poll.mod.11<-rma.mv(
+poll.mod.22<-rma.mv(
   yi=effect,
   V=var, 
-  mods=~GCDTypeSource + Body.Size, ## 
+  mods=~GCDType, ## 
   random= list(~1|ID/UniqueID, 
                ~ 1 | Measurement),
   struct="CS",
   method="REML",
   digits=4,
   data=poll)
+anova(poll.mod.22, btt = "GCD") #   significant
+
+summary(poll.mod.22)
 
 
-anova(poll.mod.11, btt = "GCD") #  nearly significant
-anova(poll.mod.11, btt = "Size") #  not significant
-
-
-poll.mod.12<-rma.mv(
-  yi=effect,
-  V=var, 
-  mods=~GCDTypeSource, ## 
-  random= list(~1|ID/UniqueID, 
-               ~ 1 | Measurement),
-  struct="CS",
-  method="REML",
-  digits=4,
-  data=poll)
-anova(poll.mod.12, btt = "GCD") #  nearly significant
-
-poll.mod.13<-rma.mv(
-  yi=effect,
-  V=var, 
-  random= list(~1|ID/UniqueID, 
-               ~ 1 | Measurement),
-  struct="CS",
-  method="REML",
-  digits=4,
-  data=poll)
-
-summary(poll.mod.13)
-
-saveRDS(poll.mod.13, file = "Models/pollutionMod.rds")
-
-
+saveRDS(poll.mod.22, file = "Models/pollutionMod.rds")
 
 
 ## pollution pub bias
@@ -177,7 +182,7 @@ poll$year.c <- as.vector(scale(poll$year, scale = F))
 publication.bias.model.poll.se <- rma.mv(
   yi=effect,
   V=var, 
-  mods=~1 + year.c + sei, ## 
+  mods=~1 + GCDType + year.c + sei, ## 
   random= list(~1|ID/UniqueID, 
                ~ 1 | Measurement),
   struct="CS",
@@ -195,13 +200,22 @@ estimates.publication.bias.model.r.se <- estimates.CI(publication.bias.model.pol
 publication.bias.model.poll.allin <- rma.mv(
   yi=effect,
   V=var, 
-  mods=~1 + year.c + var, ## note var not SEI # no intercept
+  mods=~-1 + GCDType + year.c + var, ## note var not SEI # no intercept
   random= list(~1|ID/UniqueID, 
                ~ 1 | Measurement),
   struct="CS",
   method="REML",
   digits=4,
   data=poll)
+
+# preparation to get marginalized mean (when vi = 0)
+res.publication.bias.model.r.v.1 <- qdrg(object = publication.bias.model.poll.allin, data = poll,
+                                         at = list(var = 0, year.c = 0))
+
+# marginalised means for different levels for driver
+mm.publication.bias.model.r.v.1 <- emmeans(res.publication.bias.model.r.v.1, specs = "GCDType")
+
+
 
 
 
@@ -209,21 +223,42 @@ publication.bias.model.poll.allin <- rma.mv(
 publication.bias.model.r.v.1b <-  rma.mv(
   yi=effect,
   V=var, 
-  mods=~1, ## intercept only model 
+  mods=~-1 + GCDType, 
   random= list(~1|ID/UniqueID, 
                ~ 1 | Measurement),
   struct="CS",
   method="REML",
   digits=4,
   data=poll)
+summary(publication.bias.model.r.v.1b) # used in manuscript
 
 
-estimates.publication.bias.model.r.v.1 <- estimates.CI(publication.bias.model.poll.allin)
+estimates.publication.bias.model.r.v.1 <- estimates.CI2(mm.publication.bias.model.r.v.1)
+
 
 estimates.publication.bias.model.r.v.1b <- estimates.CI(publication.bias.model.r.v.1b)
 # Most previous code doesn't work, because its an intercept only model
 
 
+table.comparing.captivity.levels <- merge(estimates.publication.bias.model.r.v.1,
+                                          estimates.publication.bias.model.r.v.1b,
+                                          by="estimate",
+                                          all.x=T)
+
+# rounding estimates
+table.comparing.captivity.levels <- table.comparing.captivity.levels %>% mutate(across(where(is.numeric), round, 2))
+
+
+table.comparing.captivity.levels <- data.frame(driver = table.comparing.captivity.levels[,1],
+                                               adjusted.mean=table.comparing.captivity.levels[,2],               
+                                               adjusted.CI=paste0("[",table.comparing.captivity.levels[,3],",",table.comparing.captivity.levels[,4],"]"),
+                                               unadjusted.mean=table.comparing.captivity.levels[,5],
+                                               unadjusted.CI=paste0("[",table.comparing.captivity.levels[,6],",",table.comparing.captivity.levels[,7],"]"))
+
+
+
+
+########################
 
 
 ## Would the pollutant type make a difference if we accounted for bias?
