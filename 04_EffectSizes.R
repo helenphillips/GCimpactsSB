@@ -13,11 +13,12 @@ library(beepr) # to make a sound when a model has finished
 setwd("C:/Users/helenp/WORK/GCimpactsSB")
 
 ## LOAD THE DATA
-dataDir <- "Data/February2022"
+dataDir <- "Data/September2022"
 
 DataCleaned <- read.csv(file.path(dataDir, "processed", "0_2_alldata.csv"), header = TRUE) # load the cleaned data (Change the name)
 
 table(DataCleaned$Measurement)
+
 
 
 # Sometimes zeros were missing that should actually be zeros
@@ -39,7 +40,7 @@ DataCleaned$Treatment_SD[which(DataCleaned$ID == 129 & is.na(DataCleaned$Treatme
 
 ## Which measurements are there that have nas in Sds
 table(DataCleaned$Measurement[which(!(is.na(DataCleaned$Control_mean)) & is.na(DataCleaned$Control_SD))])
-## That's fine (11 abundance and 1 biomass)
+## That's fine (8 abundance and 1 biomass)
 
 
 
@@ -57,7 +58,7 @@ table(DataCleaned$driver[which(DataCleaned$Control_SD   == 0)]) # Mainly lui, nu
 
 
 nrow(DataCleaned[which(DataCleaned$Treatment_mean  == 0),]) # 161
-nrow(DataCleaned[which(DataCleaned$Treatment_SD  == 0),]) # 197
+nrow(DataCleaned[which(DataCleaned$Treatment_SD  == 0),]) # 195
 table(DataCleaned$driver[which(DataCleaned$Treatment_SD   == 0)]) # Mainly lui,  nutrient enrichment and pollution
 
 
@@ -72,14 +73,14 @@ hedges <- escalc(measure = "SMD", #
                  n1i = Treatment_N,
                  data = DataCleaned)
 ## get a warning message here because of the zeros, which gets dealt with shortly
-# 3440
+# 3422
 
 ## 99 NAs in hedges
 # When theres no Ns, or when there are zeros, in the Sds?
 
 
 hedges <- hedges[which(!(is.na(hedges$yi))),]
-
+# 3323
 
 # Rename Effect sizes
 hedges$effect <- hedges$yi
@@ -101,7 +102,7 @@ hedges[which(hedges$effect > 50),]
 hedges <- hedges[which(hedges$effect > -50),]
 hedges <- hedges[which(hedges$effect < 50),]
 ## removes only four cases
-
+## 3319
 
 
 head(hedges[which(hedges$var > 2),])
@@ -117,7 +118,7 @@ hedges$sei <- sqrt(hedges$vi)
 
 ## Using the all in approach to check for effect of time
 
-meta <- read.csv("Data/February2022/processed/metadata.csv")
+meta <- read.csv("Data/September2022/processed/metadata.csv")
 meta$year <- sapply(strsplit(meta$NameOfPDF,'_'), "[", 2)
 hedges <- merge(hedges, meta[,c('ID', 'year')], by = "ID", all.x = TRUE)
 hedges$year <- as.integer(hedges$year)
@@ -149,6 +150,9 @@ hedges <- hedges[!(hedges$Measurement == "Simpson"),]
 hedges <- hedges[!(hedges$Measurement == "Evenness"),]
 
 
+## merge in others to species richness
+hedges$Measurement[which(hedges$Measurement == "SpeciesTaxaRichness")] <- "Richness"
+
 
 hedges$Body.Size[which(hedges$Body.Size %in% c("Arthropods (all sizes)", "Insects (all sizes)", "Invertebrates (all sizes)"))] <- "All sizes"
 hedges$Body.Size[which(hedges$Body.Size %in% c("Macro-arthropods", "Macro-invertebrates"))] <- "Macro-fauna"
@@ -159,6 +163,17 @@ hedges$Body.Size[which(hedges$Body.Size %in% c("Micro-arthropods"))] <- "Meso-fa
 
 hedges$Body.Size <- as.factor(hedges$Body.Size)
 hedges$Body.Size <- relevel(hedges$Body.Size, ref = "Macro-fauna")
+
+
+
+## SAVE ------
+# 3173
+
+write.csv(hedges, "Data/03_Data/HedgesData_cleaned.csv")
+
+
+
+
 
 
 ## TRYING TO ESTABLISH WHETHER ALL EFFECT SIZES CAN BE USED ----------

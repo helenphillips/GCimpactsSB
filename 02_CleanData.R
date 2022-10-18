@@ -6,7 +6,7 @@ setwd("C:/Users/helenp/WORK/GCimpactsSB")
 
 
 ## LOAD THE DATA
-dataDir <- "Data/February2022"
+dataDir <- "Data/September2022"
 
 dat <- read.csv(file = file.path(dataDir, "processed", "alldata.csv"))
 
@@ -21,7 +21,7 @@ tokeep <- c("ID","Case_ID","CaseDescription",
 "Measurement","MeasurementUnits","Error",                  
 "Data_Source","driver", "System")
 
-dat <- dat[,which(names(dat) %in% tokeep)] # 3138 # 3609
+dat <- dat[,which(names(dat) %in% tokeep)] # 3586
 
 
 
@@ -95,7 +95,7 @@ dat <- dat[-which(dat$Error == "DT"),]
 dat <- droplevels(dat)
 
 table(dat$Error)
-
+# 3593
 
 ## unknowns marked as SD (the largest error)
 others <- which(dat$Error != "SD")
@@ -130,8 +130,14 @@ dat$driver[which(dat$GCDType == "Fire")] <-  "LUI"
 
 # unique(dat$TaxaGroup[order(dat$TaxaGroup)])
 
-taxa <- read.csv(file.path("Data","February2022", "taxonomic classification - version 3.csv"))
+taxa <- read.csv(file.path("Data","September2022", "taxonomic classification - version 3.csv"))
 dat <- merge(dat, taxa, by.x = "TaxaGroup", by.y = "original_v2", all.x = TRUE)
+
+dat$UniqueID <- paste(dat$ID, dat$Case_ID, dat$driver, sep = "_")
+n_occur <- data.frame(table(dat$UniqueID))
+n_occur[n_occur$Freq > 1,]
+## no duplicates
+nrow(dat) # 3593
 
 unique(dat$TaxaGroup[which(!(is.na(dat$TaxaGroup)) & is.na(dat$Harmonised))])
 
@@ -219,5 +225,5 @@ dat$System[which(dat$System == "Grassland/Woody")] <- "Woody"
 
 ## SAVING --------
 write.csv(dat, file = file.path(dataDir, "processed", "0_2_alldata.csv"), row.names = FALSE)
-
+nrow(dat) # 3593
 
