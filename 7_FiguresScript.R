@@ -192,7 +192,12 @@ dev.off()
 ## MODEL FIGURES
 # Main mod
 
-mod.2 <- readRDS(file = "Models/MainMod.rds")
+# mod.2 <- readRDS(file = "Models/MainMod.rds")
+
+mod.2 <- readRDS(file = "Models/MainMod_rerun.rds")
+df_main <- as.data.frame(mod.2$X)
+
+
 
 mainmodpred <-predict(mod.2, newmods=rbind(c(0,0,0,0,0), 
                                            c(1,0,0,0,0),
@@ -202,7 +207,7 @@ mainmodpred <-predict(mod.2, newmods=rbind(c(0,0,0,0,0),
                                            c(0,0,0,0,1)
 ), addx=TRUE, digits=2) #
 
-slabs <- c("Climate Change", "Habitat\nfragmentation", "Invasive\nspecies", "Land-use\nintensification", "Nutrient\nenrichment", "Pollution")
+slabs <- c("Climate change", "Habitat\nfragmentation", "Invasive\nspecies", "Land-use\nintensification", "Nutrient\nenrichment", "Pollution")
 
 order <- rev(c(1, 4, 6, 5, 3, 2)) # reverse of the actual order
 
@@ -225,12 +230,21 @@ errbar(x =slabs[order], y = mainmodpred$pred[order],
 abline(v=0, lty =2)
 mtext("Effect size", side = 1, line = 3, cex = 1.5)
 
-mtext("n = 443 (92)", side = 4, line = 0, at = 6.1, las = 2)
-mtext("n = 877 (240)", side = 4, line = 0, at = 5.1, las = 2)
-mtext("n = 797 (151)", side = 4, line = 0, at = 4.1, las = 2)
-mtext("n = 786 (158)", side = 4, line = 0, at = 3.1, las = 2)
-mtext("n = 186 (36)", side = 4, line = 0, at = 2.1, las = 2)
-mtext("n = 100 (22)", side = 4, line = 0, at = 1.1, las = 2)
+
+intce <- nrow(df_main) - (sum(df_main['driverLUI']) + 
+                            sum(df_main['driverPollution']) +  
+                            sum(df_main['driverNutrientEnrichment']) +  
+                            sum(df_main['driverInvasives']) +  
+                            sum(df_main['driverHabitatLoss'])) 
+
+
+
+mtext(paste0("n = ", intce," (93)"), side = 4, line = 0, at = 6.1, las = 2)
+mtext(paste0("n = ", sum(df_main['driverLUI'])," (240)"), side = 4, line = 0, at = 5.1, las = 2)
+mtext(paste0("n = ", sum(df_main['driverPollution'])," (151)"), side = 4, line = 0, at = 4.1, las = 2)
+mtext(paste0("n = ", sum(df_main['driverNutrientEnrichment'])," (158)"), side = 4, line = 0, at = 3.1, las = 2)
+mtext(paste0("n = ", sum(df_main['driverInvasives'])," (36)"), side = 4, line = 0, at = 2.1, las = 2)
+mtext(paste0("n = ", sum(df_main['driverHabitatLoss']), " (22)"), side = 4, line = 0, at = 1.1, las = 2)
 
 # remove abline from top
 polygon(x=c(-0.5,-0.5,0.4,0.4), y=c(6.5,10,10,6.5), col="white", border=F)
@@ -258,7 +272,7 @@ climate_slabs <- c("Gas change", "Temperature change", "Drought", "Flooding")
 
 ## lui
 
-lui.mod.2 <- readRDS(file = "Models/LUIMod.rds")
+lui.mod.2 <- readRDS(file = "Models/LUIMod_redo.rds")
 df_lui <- as.data.frame(lui.mod.2$X)
 
 
@@ -297,6 +311,16 @@ df_luinotmicro <- df_lui[which(df_lui$`Body.SizeMicro-fauna` == 0),]
 
 
 
+## pollution
+
+poll.mod.22 <-  readRDS(file = "Models/pollutionMod.rds")
+df_poll <- as.data.frame(poll.mod.22$X)
+
+
+polldat <-predict(poll.mod.22, newmods=rbind(c(0), c(1)), 
+                  addx=TRUE, digits=2) #
+
+poll_slabs <- c("Metals", "Pesticides")
 
 
 
@@ -323,8 +347,10 @@ nutridat <-predict(nutri.mod.2, newmods=rbind(c(0,0,0,0,0,0,0),
                                               c(0,0,0,0,0,0,1)# Sludge 
 ), addx=TRUE, digits=2) #
 
+# Big gap is because I can't get the left margin to be bigger...annoying
 
-nut_slabs <- c("Synthetic Fertilizers", "Ca-liming + Wood ash", "Compost", "Manure + Slurry", "                        Multiple fertilizer types", 
+nut_slabs <- c("Synthetic Fertilizers", "Ca-liming + Wood ash", "Compost", "Manure + Slurry", 
+               "                        Multiple fertilizer types", 
                "Other Organic fertilisers", "Residue + Mulch", "Sludge")
 
 
@@ -337,23 +363,28 @@ nut_ord <- rev(c(1, 2, 3,8, 4,  7, 6, 5))
 
 panel_dat <- rbind(as.data.frame(nutridat)[nut_ord,1:6], 
                    rep(NA, 6), # sneaky way to get a gap in the plot
+                   as.data.frame(polldat)[,1:6],
+                   rep(NA, 6),
                    as.data.frame(luidat)[macro,1:6],
                    rep(NA, 6),
                    as.data.frame(climatedat)[,1:6] )
 
 
-panel_dat$driver <- c(rep("nutri", length(nut_slabs)), NA, rep("lui", length(lui_slabs)), NA, rep("climate", times = 4) )
+panel_dat$driver <- c(rep("nutri", length(nut_slabs)), NA, 
+                      rep("poll", length(poll_slabs)), NA,
+                      rep("lui", length(lui_slabs)), NA, 
+                      rep("climate", times = 4) )
 
 
-all_slabs <- c(nut_slabs[nut_ord], "", lui_slabs, "", climate_slabs)
+all_slabs <- c(nut_slabs[nut_ord], "", poll_slabs, "",  lui_slabs, "", climate_slabs)
 
 
 
 
-jpeg(filename = file.path(FigoutPath, "stressorsPanel.jpg"),
-     width = 12, height = 8, units = "in", res = 600)
-# pdf(file = file.path(FigoutPath, "stressorsPanel.pdf"),
-#    width = 12, height = 8)
+#jpeg(filename = file.path(FigoutPath, "stressorsPanel.jpg"),
+#     width = 12, height = 8, units = "in", res = 600)
+ pdf(file = file.path(FigoutPath, "stressorsPanel.pdf"),
+    width = 12, height = 8)
 
 
 par(mar=c(5, 10, 2, 6))
@@ -364,29 +395,36 @@ errbar(x =all_slabs, y = panel_dat$pred,
 abline(v=0, lty =2)
 
 
+# Climate n
 mtext("Effect size", side = 1, line = 3, cex = 1.5)
-mtext(paste0("n = ", sum(df_climate['GCDTypeWaterAvailability-Flood'])), side = 4, line = 0, at = 19.1, las = 2)
-mtext(paste0("n = ", sum(df_climate['GCDTypeWaterAvailability-Drought'])), side = 4, line = 0, at = 18.1, las = 2)
-mtext(paste0("n = ", sum(df_climate$GCDTypeTemperature )), side = 4, line = 0, at = 17.1, las = 2)
+mtext(paste0("n = ", sum(df_climate['GCDTypeWaterAvailability-Flood'])), side = 4, line = 0, at = 22.1, las = 2)
+mtext(paste0("n = ", sum(df_climate['GCDTypeWaterAvailability-Drought'])), side = 4, line = 0, at = 21.1, las = 2)
+mtext(paste0("n = ", sum(df_climate$GCDTypeTemperature )), side = 4, line = 0, at = 20.1, las = 2)
 intce <- nrow(df_climate) - (sum(df_climate['GCDTypeWaterAvailability-Flood']) + sum(df_climate['GCDTypeWaterAvailability-Drought']) +  sum(df_climate$GCDTypeTemperature ))
-mtext(paste0("n = ", intce), side = 4, line = 0, at = 16.1, las = 2)
+mtext(paste0("n = ", intce), side = 4, line = 0, at = 19.1, las = 2)
 
 
-
-mtext(paste0("n = ", sum(df_lui['GCDTypeFire'])), side = 4, line = 0, at = 13.1, las = 2)
-mtext(paste0("n = ", sum(df_lui['GCDTypeHarvesting'])), side = 4, line = 0, at = 12.1, las = 2)
-mtext(paste0("n = ", sum(df_lui['GCDTypeOrganic versus Inorganic'])), side = 4, line = 0, at = 11.1, las = 2)
-mtext(paste0("n = ", sum(df_lui['GCDTypeTillage'])), side = 4, line = 0, at = 10.1, las = 2)
+# LUI n's
+mtext(paste0("n = ", sum(df_lui['GCDTypeFire'])), side = 4, line = 0, at = 16.1, las = 2)
+mtext(paste0("n = ", sum(df_lui['GCDTypeHarvesting'])), side = 4, line = 0, at = 15.1, las = 2)
+mtext(paste0("n = ", sum(df_lui['GCDTypeOrganic versus Inorganic'])), side = 4, line = 0, at = 14.1, las = 2)
+mtext(paste0("n = ", sum(df_lui['GCDTypeTillage'])), side = 4, line = 0, at = 13.1, las = 2)
 
 intce <- nrow(df_lui) - (sum(df_lui['GCDTypeFire']) + sum(df_lui['GCDTypeHarvesting']) + 
                            sum(df_lui['GCDTypeOrganic versus Inorganic']) +
                            sum(df_lui['GCDTypeTillage']))
-mtext(paste0("n = ", intce), side = 4, line = 0, at = 14.1, las = 2)
+mtext(paste0("n = ", intce), side = 4, line = 0, at = 17.1, las = 2)
 
 
 
+# pollution n's
+mtext(paste0("n = ", sum(df_poll['GCDTypePesticides'])), side = 4, line = 0, at = 11.1, las = 2)
+intce <- nrow(df_poll) - (sum(df_poll['GCDTypePesticides']))
+mtext(paste0("n = ", intce), side = 4, line = 0, at = 10.1, las = 2)
 
 
+
+# nutrient n's
 intce <- nrow(df_nut) - (sum(df_nut['GCDTypeCa-liming + Wood ash']) + sum(df_nut['GCDTypeCompost']) + sum(df_nut['GCDTypeSludge (including Biosolids)'])+
                            sum(df_nut['GCDTypeManure + Slurry']) + +sum(df_nut['GCDTypeResidue + Mulch']) +
                            sum(df_nut['GCDTypeOther Organic fertilisers (NOT including compost and Urea)']) +
@@ -405,9 +443,8 @@ mtext(paste0("n = ", sum(df_nut['GCDTypeMixture'])), side = 4, line = 0, at = 1.
 
 
 ## after I've made the plot, repeat the plot over the grey shading
-
-polygon(x=c(-1.5,-1.5,1.4,1.4), y=c(0.5,8.5,8.5,0.5), col="#DCDCDC7D", border=F)
-polygon(x=c(-1.5,-1.5,1.4,1.4), y=c(15.5,19.5,19.5,15.5), col="#DCDCDC7D", border=F)
+polygon(x=c(-1.5,-1.5,1.4,1.4), y=c(18.5,22.5,22.5,18.5), col="#DCDCDC7D", border=F)
+polygon(x=c(-1.5,-1.5,1.4,1.4), y=c(9.5,11.5,11.5,9.5), col="#DCDCDC7D", border=F)
 
 par(new = TRUE)
 
@@ -420,8 +457,8 @@ abline(v=0, lty =2)
 
 ## Add in microfauna for lui
 
-points(y = 10:14+0.1, x = luidat$pred[micro], col = "darkgrey", pch = 19, cex = 2)
-segments(luidat$ci.lb[micro], 10:14+0.1, luidat$ci.ub[micro], 10:14+0.1, col = "darkgrey")
+points(y = 13:17+0.1, x = luidat$pred[micro], col = "darkgrey", pch = 19, cex = 2)
+segments(luidat$ci.lb[micro], 13:17+0.1, luidat$ci.ub[micro], 13:17+0.1, col = "darkgrey")
 
 legend(0.55,14.5, legend=c("Macro/Meso-fauna", "Micro-fauna"), pch = 19,
        col = c("black", "darkgrey"), cex = 1, bty = "n", pt.cex = 1.5)
@@ -429,20 +466,23 @@ legend(0.55,14.5, legend=c("Macro/Meso-fauna", "Micro-fauna"), pch = 19,
 
 
 ## labelling
-mtext("Land-use\nintensification", side = 2, line = 5.5, at = 12, cex = 1.2)
-mtext("Climate\nchange", side = 2, line = 5.5, at = 17.5, cex = 1.2)
+mtext("Land-use\nintensification", side = 2, line = 5.5, at = 15, cex = 1.2)
+mtext("Climate\nchange", side = 2, line = 5.5, at = 20.5, cex = 1.2)
+mtext("Pollution", side = 2, line = 5.5, at = 10.5, cex = 1.2)
 mtext("Nutrient\nenrichment", side = 2, line = 5.5, at = 4.5, cex = 1.2)
 
-mtext("(a)", side = 2, line = 8, at = 19.2, cex = 1.2, las = 2)
-mtext("(b)", side = 2, line = 8, at = 14.2, cex = 1.2, las = 2)
-mtext("(c)", side = 2, line = 8, at = 8.2, cex = 1.2, las = 2)
+mtext("(a)", side = 2, line = 8, at = 22.2, cex = 1.2, las = 2)
+mtext("(b)", side = 2, line = 8, at = 17.2, cex = 1.2, las = 2)
+mtext("(c)", side = 2, line = 8, at = 12.2, cex = 1.2, las = 2)
+mtext("(d)", side = 2, line = 8, at = 8.2, cex = 1.2, las = 2)
 
 # remove not needed ticks on y
-segments(-2, 9, -1.565, 9, col = "white")
-segments(-2, 15, -1.565, 15, col = "white")
+segments(-2, 9, -1.588, 9, col = "white", lwd  = 1.3)
+segments(-2, 12, -1.588, 12, col = "white", lwd  = 1.3)
+segments(-2, 18, -1.588, 18, col = "white", lwd = 1.3)
 
 # remove abline from top
-polygon(x=c(-0.5,-0.5,0.4,0.4), y=c(19.5,22,22,19.5), col="white", border=F)
+polygon(x=c(-0.5,-0.5,0.4,0.4), y=c(22.5,25,25,22.5), col="white", border=F)
 
 
 
@@ -500,6 +540,7 @@ t_dat <-predict(mod.gsba.taxa, newmods=rbind(c(0,0,0,0,0, 0,0,0,  0,0,0,0,0,0,0,
 gcds <- rep(c("Climate change", "habitat", "invasives", "LUI", "Nutrient", "Pollution"), each = 4)
 taxa <- rep(c("Acari","Collembola", "Earthworms", "Nematodes"), times = 6)
 
+# This is because I can't get the left margin to be bigger...annoying
 taxaspace <- paste("                          ", taxa)
 
 # exclude habitat frag and invasives (little data)
@@ -509,8 +550,8 @@ subs <- rev(c(1:4, 13:16, 21:24, 17:20))
 
 jpeg(filename = file.path(FigoutPath, "GSBAMod.jpg"),
      width = 10, height = 6, units = "in", res = 600)
-# pdf(file = file.path(FigoutPath, "GSBAMod.pdf"),
-#       width = 10, height = 6)
+pdf(file = file.path(FigoutPath, "GSBAMod.pdf"),
+       width = 10, height = 6)
 
 
 
@@ -547,21 +588,21 @@ abline(v=0, lty =2)
 
 
 mtext("n = 141", side = 4, line = 0, at = 16.1, las = 2)
-mtext("n = 78", side = 4, line = 0, at = 15.1, las = 2)
+mtext("n = 81", side = 4, line = 0, at = 15.1, las = 2)
 mtext("n = 22", side = 4, line = 0, at = 14.1, las = 2)
-mtext("n = 112", side = 4, line = 0, at = 13.1, las = 2)
+mtext("n = 114", side = 4, line = 0, at = 13.1, las = 2)
 mtext("n = 138", side = 4, line = 0, at = 12.1, las = 2)
 mtext("n = 84", side = 4, line = 0, at = 11.1, las = 2)
 mtext("n = 174", side = 4, line = 0, at = 10.1, las = 2)
-mtext("n = 188", side = 4, line = 0, at = 9.1, las = 2)
+mtext("n = 189", side = 4, line = 0, at = 9.1, las = 2)
 mtext("n = 105", side = 4, line = 0, at = 8.1, las = 2)
 mtext("n = 99", side = 4, line = 0, at = 7.1, las = 2)
 mtext("n = 98", side = 4, line = 0, at = 6.1, las = 2)
 mtext("n = 218", side = 4, line = 0, at = 5.1, las = 2)
-mtext("n = 180", side = 4, line = 0, at = 4.1, las = 2)
+mtext("n = 181", side = 4, line = 0, at = 4.1, las = 2)
 mtext("n = 90", side = 4, line = 0, at = 3.1, las = 2)
 mtext("n = 136", side = 4, line = 0, at = 2.1, las = 2)
-mtext("n = 160", side = 4, line = 0, at = 1.1, las = 2)
+mtext("n = 154", side = 4, line = 0, at = 1.1, las = 2)
 
 
 # remove abline from top
@@ -578,7 +619,6 @@ dev.off()
 ## PUBLICATION BIAS PLOTS ---------------
 
 invas.mod.3 <- readRDS(file = "Models/invasiveMod.rds")
-poll.mod.1d <- readRDS(file = "Models/pollutionMod.rds")
 
 
 
@@ -603,7 +643,7 @@ corner.label2(label = "(c) LUI", cex = 2)
 
 
 par(mar = c(5, 5, 0, 0))
-funnel(poll.mod.1d,  main = "",xlab = "", ylab = "")
+funnel(poll.mod.22,  main = "",xlab = "", ylab = "")
 corner.label2(label = "(d) Pollution", cex = 2)
 
 par(mar = c(5, 2, 0, 0))
@@ -680,9 +720,13 @@ jpeg(filename = file.path(FigoutPath, "PollutionRaw.jpg"),
 
 par(mar=c(5, 5, 1, 1))
 
+poll_labels <- c("Metals\nMining/Smelting", "Metals\nWaste/sewage", "Metals\nUrban/transport",
+                 "Metals\nIndustrial", "Metals\nOthers", "Pesticides\nFarming", "Pesticides\nOthers")
+
+
 boxplot(poll_cut$effect ~ poll_cut$GCDTypeSource,
-        ylab = "Effect size", xlab = "", 
-        names = "")
+        ylab = "", xlab = "", 
+        axes=FALSE, outline=FALSE, ylim = c(-16,15))
 stripchart(poll_cut$effect ~ poll_cut$GCDTypeSource,
            vertical=TRUE,
            method = "jitter",
@@ -690,8 +734,7 @@ stripchart(poll_cut$effect ~ poll_cut$GCDTypeSource,
            col = 1:7,
            add = TRUE)
 
-poll_labels <- c("Metals\nMining/Smelting", "Metals\nWaste/sewage", "Metals\nUrban/transport",
-                 "Metals\nIndustrial", "Metals\nOthers", "Pesticides\nFarming", "Pesticides\nOthers")
+
 
 axis(1, at = 1:7, labels = poll_labels, padj = 1)
 axis(2)
