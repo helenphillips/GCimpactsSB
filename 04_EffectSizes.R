@@ -72,10 +72,11 @@ hedges <- escalc(measure = "SMD", #
                  sd1i = Treatment_SD,
                  n1i = Treatment_N,
                  data = DataCleaned)
-## get a warning message here because of the zeros, which gets dealt with shortly
+## get a warning message here because of the zeros, 
 # 3422
 
 ## 99 NAs in hedges
+## when both the control AND the treatment is zero
 # When theres no Ns, or when there are zeros, in the Sds?
 
 

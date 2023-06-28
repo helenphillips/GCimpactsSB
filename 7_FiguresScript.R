@@ -58,6 +58,9 @@ corner.label2 <- function(label = NULL, x = -1, y = 1, xoff = NA, yoff = NA,
 
 
 
+### TODO: CHECK THAT 1243 HAS SLOVAKIA IN THE COUNTRY NAME
+
+
 
 meta$Country[which(meta$Country == "Czech Rpublic" | meta$Country == "Czechia"  )] <- "Czech Republic"
 

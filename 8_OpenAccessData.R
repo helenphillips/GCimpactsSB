@@ -4,6 +4,7 @@
 setwd("C:/Users/helenp/WORK/GCimpactsSB")
 
 
+
 hedges <- read.csv("Data/03_Data/HedgesData_cleaned.csv")
 
 
@@ -59,3 +60,12 @@ saveFolder <- "Data/OpenAccessData"
 
 write.csv(allDat, file = file.path(saveFolder, "PhillipsetalData.csv"), row.names = FALSE)        
 
+
+
+## Getting list of references to create an appendix for citations
+allDat$PaperID <- paste(allDat$ID, allDat$Author, allDat$year, allDat$Title, sep="_")
+
+orderedAllDat <- allDat[order(allDat$Author),]
+
+test <- unique(orderedAllDat[c("PaperID", "DOI")])
+write.csv(test, file = file.path("Data", "Titles_DOIs.csv"), row.names = FALSE)        
