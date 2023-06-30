@@ -46,7 +46,7 @@ estimates.CI2 <- function(res){
 
 
 
-hedges <- read.csv("Data/03_Data/HedgesData_cleaned.csv")
+hedges <- read.csv("Data/03_Data/HedgesData_cleaned_June2023.csv")
 
 
 
@@ -57,9 +57,6 @@ hedges <- read.csv("Data/03_Data/HedgesData_cleaned.csv")
 ############################
 ## FULL ANALYSIS WITH CROSSED RANDOM EFFECTS
 ########################
-
-
-
 
 
 mod.1<-rma.mv(
@@ -123,7 +120,7 @@ anova(mod.2, btt = "driver") # significant
 
 
 ## we stick with mod.2
-saveRDS(mod.2, file = "Models/MainMod_rerun.rds")
+saveRDS(mod.2, file = "Models/MainMod_rerun_June2023.rds")
 
 
 
@@ -156,7 +153,7 @@ publication.bias.model.r.se <- rma.mv(
 estimates.publication.bias.model.r.se <- estimates.CI(publication.bias.model.r.se)
 
 
-## Indicates bias
+## Indicates bias (#significant SEI)
 ## Can account for that bias in the estimates
 
 
@@ -228,7 +225,7 @@ P <- W - W %*% X %*% solve(t(X) %*% W %*% X) %*% t(X) %*% W
 100 * sum(mod.2$sigma2) / (sum(mod.2$sigma2) + (mod.2$k-mod.2$p)/sum(diag(P)))
 
 
-# 86.30% of the total variance due to heterogeneity.
+# 86.39% of the total variance due to heterogeneity.
 
 
 100 * mod.2$sigma2 / (sum(mod.2$sigma2) + (mod.2$k-mod.2$p)/sum(diag(P)))
@@ -236,13 +233,13 @@ P <- W - W %*% X %*% solve(t(X) %*% W %*% X) %*% t(X) %*% W
 
 
 
-# About 48.35% of the total variance is estimated to be due to between-cluster heterogeneity, 
-# 36.89% due to within-cluster heterogeneity 
-# and only 1.06% due to the crossed effects. 
+# About 48.50% of the total variance is estimated to be due to between-cluster heterogeneity, 
+# 36.87% due to within-cluster heterogeneity 
+# and only 1.01% due to the crossed effects. 
 
 100 - sum(100 * mod.2$sigma2 / (sum(mod.2$sigma2) + (mod.2$k-mod.2$p)/sum(diag(P))))
 
-# The remaining 13.67% is sampling variance.
+# The remaining 13.61% is sampling variance.
 
 
 
