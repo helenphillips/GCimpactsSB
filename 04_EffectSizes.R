@@ -13,7 +13,7 @@ library(beepr) # to make a sound when a model has finished
 setwd("C:/Users/helenp/WORK/GCimpactsSB")
 
 ## LOAD THE DATA
-dataDir <- "Data/September2022"
+dataDir <- "Data/June2023"
 
 DataCleaned <- read.csv(file.path(dataDir, "processed", "0_2_alldata.csv"), header = TRUE) # load the cleaned data (Change the name)
 
@@ -46,19 +46,19 @@ table(DataCleaned$Measurement[which(!(is.na(DataCleaned$Control_mean)) & is.na(D
 
 # there are some climate cases that have no SDs
 DataCleaned <- DataCleaned[which(!(is.na(DataCleaned$Control_SD))),] 
-DataCleaned <- DataCleaned[which(!(is.na(DataCleaned$Treatment_SD))),] # 3440
+DataCleaned <- DataCleaned[which(!(is.na(DataCleaned$Treatment_SD))),] # 3406
 
 
 
 ## How many cases (and which drivers) now have zeros
-nrow(DataCleaned[which(DataCleaned$Control_mean == 0),]) # 127
-nrow(DataCleaned[which(DataCleaned$Control_SD   == 0),]) # 159
+nrow(DataCleaned[which(DataCleaned$Control_mean == 0),]) # 121
+nrow(DataCleaned[which(DataCleaned$Control_SD == 0),]) # 153
 
-table(DataCleaned$driver[which(DataCleaned$Control_SD   == 0)]) # Mainly lui, nutrient enrichment and pollution
+table(DataCleaned$driver[which(DataCleaned$Control_SD == 0)]) # Mainly lui, nutrient enrichment and pollution
 
 
-nrow(DataCleaned[which(DataCleaned$Treatment_mean  == 0),]) # 161
-nrow(DataCleaned[which(DataCleaned$Treatment_SD  == 0),]) # 195
+nrow(DataCleaned[which(DataCleaned$Treatment_mean  == 0),]) # 155
+nrow(DataCleaned[which(DataCleaned$Treatment_SD  == 0),]) # 189
 table(DataCleaned$driver[which(DataCleaned$Treatment_SD   == 0)]) # Mainly lui,  nutrient enrichment and pollution
 
 
@@ -75,13 +75,13 @@ hedges <- escalc(measure = "SMD", #
 ## get a warning message here because of the zeros, 
 # 3422
 
-## 99 NAs in hedges
+## 95 NAs in hedges
 ## when both the control AND the treatment is zero
 # When theres no Ns, or when there are zeros, in the Sds?
 
 
 hedges <- hedges[which(!(is.na(hedges$yi))),]
-# 3323
+# 3323 # now 3311
 
 # Rename Effect sizes
 hedges$effect <- hedges$yi
@@ -103,7 +103,7 @@ hedges[which(hedges$effect > 50),]
 hedges <- hedges[which(hedges$effect > -50),]
 hedges <- hedges[which(hedges$effect < 50),]
 ## removes only four cases
-## 3319
+## 3307
 
 
 head(hedges[which(hedges$var > 2),])
@@ -119,7 +119,7 @@ hedges$sei <- sqrt(hedges$vi)
 
 ## Using the all in approach to check for effect of time
 
-meta <- read.csv("Data/September2022/processed/metadata.csv")
+meta <- read.csv("Data/June2023/processed/metadata.csv")
 meta$year <- sapply(strsplit(meta$NameOfPDF,'_'), "[", 2)
 hedges <- merge(hedges, meta[,c('ID', 'year')], by = "ID", all.x = TRUE)
 hedges$year <- as.integer(hedges$year)
@@ -131,8 +131,8 @@ hedges$year.c <- as.vector(scale(hedges$year, scale = F))
 
 
 # Save data
-write.csv(hedges, "Data/03_Data/HedgesData.csv")
-# 3341
+write.csv(hedges, "Data/03_Data/HedgesData_June2023.csv")
+# 3307
 
 
 hedges$UniqueID <- paste(hedges$ID, hedges$Case_ID, hedges$driver)
@@ -168,9 +168,9 @@ hedges$Body.Size <- relevel(hedges$Body.Size, ref = "Macro-fauna")
 
 
 ## SAVE ------
-# 3173
+# 3160
 
-write.csv(hedges, "Data/03_Data/HedgesData_cleaned.csv")
+write.csv(hedges, "Data/03_Data/HedgesData_cleaned_June2023.csv")
 
 
 
@@ -192,7 +192,7 @@ measurement.mod.1 <-rma.mv(
 
 anova(measurement.mod.1, btt = "Measurement") # is significant
 
-saveRDS(measurement.mod.1, file = "Models/MeasurementMod.rds")
+saveRDS(measurement.mod.1, file = "Models/MeasurementMod_June2023.rds")
 
 
 ## But all responses are negative
