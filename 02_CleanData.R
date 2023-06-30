@@ -6,20 +6,36 @@ setwd("C:/Users/helenp/WORK/GCimpactsSB")
 
 
 ## LOAD THE DATA
-dataDir <- "Data/September2022"
+dataDir <- "Data/June2023"
 
 dat <- read.csv(file = file.path(dataDir, "processed", "alldata.csv"))
+dat$UniqueID <- paste(dat$ID, dat$Case_ID, dat$driver)
+
+
+## ADD IN CLEANED COORDINATES (FROM 10_ SCRIPT)
+
+coords <- read.csv("Data/CoordinatesFixed.csv")
+coords$Latitude <- NULL
+coords$Longitude <- NULL
+coords$ID <- NULL
+dat <- merge(dat, coords, by = "UniqueID", all.x = TRUE)
+
+
+## ADD IN PH (FROM 11_ SCRIPT)
+phs <- read.csv("Data/Phs_Fixed.csv")
+phs$ID <- NULL
+dat <- merge(dat, phs, by = "UniqueID", all.x = TRUE)
 
 
 
 ## CLEAN THE COLUMNS
-tokeep <- c("ID","Case_ID","CaseDescription",
+tokeep <- c("ID","Case_ID","CaseDescription", "lat_dd", "long_dd", 
 "GCDType","ChangeType",
   "TaxaGroup","TaxaBodysize",       
 "Control_mean","Control_SD","Control_N"     ,         
 "Treatment_mean","Treatment_SD","Treatment_N" ,           
 "Measurement","MeasurementUnits","Error",                  
-"Data_Source","driver", "System")
+"Data_Source","driver", "System", "ph_fixed")
 
 dat <- dat[,which(names(dat) %in% tokeep)] # 3586
 
@@ -95,7 +111,7 @@ dat <- dat[-which(dat$Error == "DT"),]
 dat <- droplevels(dat)
 
 table(dat$Error)
-# 3593
+# 3580
 
 ## unknowns marked as SD (the largest error)
 others <- which(dat$Error != "SD")
@@ -130,14 +146,18 @@ dat$driver[which(dat$GCDType == "Fire")] <-  "LUI"
 
 # unique(dat$TaxaGroup[order(dat$TaxaGroup)])
 
-taxa <- read.csv(file.path("Data","September2022", "taxonomic classification - version 3.csv"))
+taxa <- read.csv(file.path("Data","June2023", "taxonomic classification - version 4.csv"))
 dat <- merge(dat, taxa, by.x = "TaxaGroup", by.y = "original_v2", all.x = TRUE)
 
+
+# Remaking this, as apparently I was using an underscore
 dat$UniqueID <- paste(dat$ID, dat$Case_ID, dat$driver, sep = "_")
+
+
 n_occur <- data.frame(table(dat$UniqueID))
 n_occur[n_occur$Freq > 1,]
 ## no duplicates
-nrow(dat) # 3593
+nrow(dat) # 3580
 
 unique(dat$TaxaGroup[which(!(is.na(dat$TaxaGroup)) & is.na(dat$Harmonised))])
 
@@ -178,28 +198,21 @@ dat$Body.Size[which(dat$Body.Size %in% c("Meso and Macrofauna"))] <-  "Invertebr
 
 # DiversityMetric
 
-
 table(dat$Measurement)
 
-
-dat$Measurement[which(dat$Measurement %in% c("FamilyRichness"    ,  
-"GeneraRichness"           ,
-"GenusRichness"         ,
-"GroupRichness"      ,          
-"Margalef" ,
-"Margalef Richness index",
-"MargalefRichness" ,               
-"Richness"           ,      
-"Species/Genus Richness",
-"SpeciesRichness" ,
-"TaxaRichness"    ,      
-"Taxon richness",
-"TaxonRichness"))] <- "Richness" # 325
-
-
-
-
-
+dat$Measurement[which(dat$Measurement %in% c("FamilyRichness",  
+                                             "GeneraRichness",
+                                             "GenusRichness",
+                                             "GroupRichness",          
+                                             "Margalef",
+                                             "Margalef Richness index",
+                                             "MargalefRichness",               
+                                             "Richness",      
+                                             "Species/Genus Richness",
+                                             "SpeciesRichness",
+                                             "TaxaRichness",      
+                                             "Taxon richness",
+                                             "TaxonRichness"))] <- "Richness" # 325
 
 dat$Measurement[which(dat$Measurement %in% c("Eveness"))] <- "Evenness"
        
@@ -214,10 +227,8 @@ dat$Measurement[which(dat$Measurement %in% c("Simpson Equitability",
 
 table(dat$System)
 
-dat$System[which(dat$System == "Wetland")] <- "Wetlands"
-dat$System[which(dat$System == "Wetlands/Grassland")] <- "Wetlands"
-dat$System[which(dat$System == "high altitude fellfield")] <- "Cold/Dry"
-dat$System[which(dat$System == "subalpine heath")] <- "Cold/Dry"
+dat$System[which(dat$System %in% c("Wetland", "Wetlands/Grassland"))] <- "Wetlands"
+dat$System[which(dat$System %in% c("high altitude fellfield", "subalpine heath"))] <- "Cold/Dry"
 dat$System[which(dat$System == "Unknown")] <- ""
 dat$System[which(dat$System == "Grassland/Woody")] <- "Woody"
 
@@ -225,5 +236,5 @@ dat$System[which(dat$System == "Grassland/Woody")] <- "Woody"
 
 ## SAVING --------
 write.csv(dat, file = file.path(dataDir, "processed", "0_2_alldata.csv"), row.names = FALSE)
-nrow(dat) # 3593
+nrow(dat) # 3580
 
