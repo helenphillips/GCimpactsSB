@@ -11,15 +11,32 @@ library(ggmap)
 library(rnaturalearth)
 library(countrycode)
 library(viridis)
+library(sf)
+
+
+# install.packages("remotes")
+# remotes::install_github("liamgilbey/ggwaffle")
+library(ggwaffle)
 
 # devtools::install_github("MathiasHarrer/dmetar")
 library(dmetar) # For 3-level I^2
 
-allDat <- read.csv("Data/03_Data/HedgesData_cleaned.csv")
-meta <- read.csv("Data/February2022/processed/metadata.csv")
+allDat <- read.csv("Data/03_Data/HedgesData_cleaned_June2023.csv")
+meta <- read.csv("Data/June2023/processed/metadata.csv")
 
 
 FigoutPath <- "C:/Users/helenp/WORK/GCimpactsSB/Figures"
+
+## coordinates of studies
+coords <- read.csv("Data/CoordinatesFixed.csv")
+coords <- coords[!duplicated(coords[,c(1, 5:6)]),]
+coords<- coords[which(!(is.na(coords$lat_dd))),]
+coords<- coords[which(!(is.na(coords$long_dd))),]
+
+
+coords <- st_as_sf(coords, coords = c("long_dd", "lat_dd"), 
+                  crs = 4326, agr = "constant")
+
 
 
 
@@ -56,9 +73,6 @@ corner.label2 <- function(label = NULL, x = -1, y = 1, xoff = NA, yoff = NA,
 
 ## MAP
 
-
-
-### TODO: CHECK THAT 1243 HAS SLOVAKIA IN THE COUNTRY NAME
 
 
 
@@ -134,11 +148,11 @@ wm$no.stud.cat <- as.factor(wm$no.stud.cat)
 wm$no.stud.cat <- factor(wm$no.stud.cat, levels = c("<5", "5 - 10", "10 - 20", "20 - 30", "30 - 40", "90 - 100", "100+"))
 
 
-jpeg(filename = file.path(FigoutPath, "GlobalMap.jpg"),
-     width = 10, height = 6, units = "in", res = 600)
+# jpeg(filename = file.path(FigoutPath, "GlobalMap.jpg"),
+#      width = 10, height = 6, units = "in", res = 600)
 
-# pdf(file = file.path(FigoutPath, "GlobalMap.pdf"),
-#     width = 10, height = 6)
+pdf(file = file.path(FigoutPath, "GlobalMap.pdf"),
+     width = 10, height = 6)
 
 
 
@@ -150,6 +164,8 @@ map <- ggplot(wm)+
                        end = 0.9,
                        na.value = "gray",
                        name = "Number of\npublications")+
+  # geom_point(data = coords, aes(x = coords$long_dd, y = coords$lat_dd),col="red", size=5)+
+  geom_sf(data = coords, size = 0.8) + 
   theme_bw()+
   theme(legend.position = c(0,0),
         # legend.position = "left",
@@ -161,6 +177,49 @@ map
 
 dev.off()
 
+
+#### -------------
+## PLOT OF THE HARMONISED TAXANOMIC GROUPS
+
+xx <- table(allDat$GSBA)[rev(order(table(allDat$GSBA)))]
+
+xx_counts <- as.numeric(xx)
+xx_counts_top <- xx_counts[1:13]
+xx_counts_all <- c(xx_counts_top, sum(xx_counts[14:length(xx_counts)]))
+counts_original<-xx_counts_all
+xx_counts_all <- round(xx_counts_all/sum(xx_counts_all) * 100, 2)
+
+xx_names <- names(xx)
+xx_names_top <- xx_names[1:13]
+xx_names_all <- c(xx_names_top, "Others")
+
+
+counts <- xx_counts_all
+counts_names<-sprintf("%s (%s)", xx_names_all, 
+                      scales::percent(round(counts_original/sum(counts_original), 4)))
+names(counts)<-counts_names
+
+
+newcols <- c(
+"#FF0000", "#FF7F00", "#FFD400", "#FFFF00",
+"#BFFF00", "#6AFF00", "#00EAFF", "#0095FF",
+"#AA00FF", "#FF00AA", "#EDB9B9", "#E7E9B9",
+"#B9EDE0", "#B9D7ED" )#, "#DCB9ED", "#8F2323",
+#"#8F6A23", "#4F8F23", "#23628F", "#6B238F",
+# "#000000", "#737373", "#CCCCCC") 
+
+#newcols2 <- c(
+# "#2f4f4f", "#6b8e23", "#a0522d", "#191970",
+#"#ff0000", "#ffd700", "#7fff00", "#00fa9a",
+#"#00bfff", "#0000ff", "#ff00ff", "#dda0dd",
+#"#ff1493", "#ffe4b5")
+
+#  colramp <- colorRampPalette(c("blue", "red"))( length(counts) )
+pdf(file = file.path(FigoutPath, "TaxanomicWaffle.pdf"),
+    width = 10, height = 6)
+
+waffle(counts, rows = 8, colors = newcols)
+dev.off()
 
 
 ## -----------------------------------------------------
@@ -175,8 +234,12 @@ taxadat$Body.Size <- factor(taxadat$Body.Size, levels = c("All sizes", "Micro-fa
 taxadat$driver <- factor(taxadat$driver, levels = c("Climate" ,"LUI" , "Pollution", "NutrientEnrichment", 
                                                     "Invasives",  "HabitatLoss"))
 
-jpeg(filename = file.path(FigoutPath, "BodySizexGCD.jpg"),
-     width = 10, height = 6, units = "in", res = 600)
+#jpeg(filename = file.path(FigoutPath, "BodySizexGCD.jpg"),
+#     width = 10, height = 6, units = "in", res = 600)
+
+pdf(file = file.path(FigoutPath, "BodySizexGCD.pdf"),
+    width = 10, height = 6)
+
 
 barplot(table(taxadat$Body.Size, taxadat$driver),
         names.arg = c("Climate change", "Land-use \nintensification", "Pollution", "Nutrient \nenrichment", "Invasive \nspecies", "Habitat \nfragmentation"),
@@ -189,6 +252,8 @@ legend("topright", legend = c("All sizes", "Micro-fauna", "Meso-fauna", "Macro-f
 
 dev.off()
 
+
+
 ## ------------------------------------------------------
 
 
@@ -197,7 +262,7 @@ dev.off()
 
 # mod.2 <- readRDS(file = "Models/MainMod.rds")
 
-mod.2 <- readRDS(file = "Models/MainMod_rerun.rds")
+mod.2 <- readRDS(file = "Models/MainMod_rerun_June2023.rds")
 df_main <- as.data.frame(mod.2$X)
 
 
@@ -220,10 +285,8 @@ tapply(allDat$ID, allDat$driver, function(x) length(unique(x)))
 
 
 
-jpeg(filename = file.path(FigoutPath, "DriversMod.jpg"),
-     width = 10, height = 6, units = "in", res = 600)
-#pdf(file = file.path(FigoutPath, "DriversMod.pdf"),
-#     width = 10, height = 6)
+pdf(file = file.path(FigoutPath, "DriversMod.pdf"),
+     width = 10, height = 6)
 
 par(mar=c(5, 10, 1, 7))
 errbar(x =slabs[order], y = mainmodpred$pred[order], 
@@ -243,9 +306,9 @@ intce <- nrow(df_main) - (sum(df_main['driverLUI']) +
 
 
 mtext(paste0("n = ", intce," (93)"), side = 4, line = 0, at = 6.1, las = 2)
-mtext(paste0("n = ", sum(df_main['driverLUI'])," (240)"), side = 4, line = 0, at = 5.1, las = 2)
+mtext(paste0("n = ", sum(df_main['driverLUI'])," (238)"), side = 4, line = 0, at = 5.1, las = 2)
 mtext(paste0("n = ", sum(df_main['driverPollution'])," (151)"), side = 4, line = 0, at = 4.1, las = 2)
-mtext(paste0("n = ", sum(df_main['driverNutrientEnrichment'])," (158)"), side = 4, line = 0, at = 3.1, las = 2)
+mtext(paste0("n = ", sum(df_main['driverNutrientEnrichment'])," (157)"), side = 4, line = 0, at = 3.1, las = 2)
 mtext(paste0("n = ", sum(df_main['driverInvasives'])," (36)"), side = 4, line = 0, at = 2.1, las = 2)
 mtext(paste0("n = ", sum(df_main['driverHabitatLoss']), " (22)"), side = 4, line = 0, at = 1.1, las = 2)
 
@@ -254,13 +317,12 @@ polygon(x=c(-0.5,-0.5,0.4,0.4), y=c(6.5,10,10,6.5), col="white", border=F)
 
 dev.off()
 
-
 ## ---------------------------------------------------------------------
 ## Panel plot for three stressor graphs
 
 ## Climate change 
 
-climate.mod.5 <- readRDS(file = "Models/ClimateMod.rds")
+climate.mod.5 <- readRDS(file = "Models/ClimateMod_june2023.rds")
 nrow(climate.mod.5$X) # this is the dataframe (ish)
 df_climate <- as.data.frame(climate.mod.5$X)
 
@@ -270,12 +332,13 @@ climatedat <-predict(climate.mod.5, newmods=rbind(c(0,0,0),
                                                   c(0,0,1)
 ), addx=TRUE, digits=2) #
 
-climate_slabs <- c("Gas change", "Temperature change", "Drought", "Flooding")
+
+climate_slabs <- c("Carbon dioxide increase", "Temperature change", "Drought", "Flooding")
 
 
 ## lui
 
-lui.mod.2 <- readRDS(file = "Models/LUIMod_redo.rds")
+lui.mod.2 <- readRDS(file = "Models/LUIMod_redo_june2023.rds")
 df_lui <- as.data.frame(lui.mod.2$X)
 
 
@@ -303,7 +366,7 @@ luidat <-predict(lui.mod.2, newmods=rbind(c(0,0,0,0,0,0),  # intercept
 macro <- rev(c(1, 4, 7, 10, 13)) #3 just the macrofauna
 micro <- macro + 2
 
-lui_slabs <- rev(c("Grazing", "Fire", "Harvesting", "Inorganic", "Tillage"))
+lui_slabs <- rev(c("Grazing", "Fire", "Harvesting", "Conventional farming", "Tillage"))
 
 
 # just micro
@@ -316,7 +379,7 @@ df_luinotmicro <- df_lui[which(df_lui$`Body.SizeMicro-fauna` == 0),]
 
 ## pollution
 
-poll.mod.22 <-  readRDS(file = "Models/pollutionMod.rds")
+poll.mod.22 <-  readRDS(file = "Models/pollutionMod_june2023.rds")
 df_poll <- as.data.frame(poll.mod.22$X)
 
 
@@ -328,7 +391,7 @@ poll_slabs <- c("Metals", "Pesticides")
 
 
 ## nutrient
-nutri.mod.2 <- readRDS(file = "Models/nutriMod.rds")
+nutri.mod.2 <- readRDS(file = "Models/nutriMod_june2023.rds")
 
 df_nut <- as.data.frame(nutri.mod.2$X)
 
@@ -397,33 +460,36 @@ errbar(x =all_slabs, y = panel_dat$pred,
        cex = 2)
 abline(v=0, lty =2)
 
+# tapply(allDat$ID, allDat$GCDType, function(x) length(unique(x)))
+
 
 # Climate n
 mtext("Effect size", side = 1, line = 3, cex = 1.5)
-mtext(paste0("n = ", sum(df_climate['GCDTypeWaterAvailability-Flood'])), side = 4, line = 0, at = 22.1, las = 2)
-mtext(paste0("n = ", sum(df_climate['GCDTypeWaterAvailability-Drought'])), side = 4, line = 0, at = 21.1, las = 2)
-mtext(paste0("n = ", sum(df_climate$GCDTypeTemperature )), side = 4, line = 0, at = 20.1, las = 2)
+mtext(paste0("n = ", sum(df_climate['GCDTypeWaterAvailability-Flood']), " (15)"), side = 4, line = 0, at = 22.1, las = 2)
+mtext(paste0("n = ", sum(df_climate['GCDTypeWaterAvailability-Drought']), " (28)"), side = 4, line = 0, at = 21.1, las = 2)
+mtext(paste0("n = ", sum(df_climate$GCDTypeTemperature), " (42)"), side = 4, line = 0, at = 20.1, las = 2)
 intce <- nrow(df_climate) - (sum(df_climate['GCDTypeWaterAvailability-Flood']) + sum(df_climate['GCDTypeWaterAvailability-Drought']) +  sum(df_climate$GCDTypeTemperature ))
-mtext(paste0("n = ", intce), side = 4, line = 0, at = 19.1, las = 2)
+mtext(paste0("n = ", intce, " (28)"), side = 4, line = 0, at = 19.1, las = 2)
 
+# add in the co2 axis label
 
 # LUI n's
-mtext(paste0("n = ", sum(df_lui['GCDTypeFire'])), side = 4, line = 0, at = 16.1, las = 2)
-mtext(paste0("n = ", sum(df_lui['GCDTypeHarvesting'])), side = 4, line = 0, at = 15.1, las = 2)
-mtext(paste0("n = ", sum(df_lui['GCDTypeOrganic versus Inorganic'])), side = 4, line = 0, at = 14.1, las = 2)
-mtext(paste0("n = ", sum(df_lui['GCDTypeTillage'])), side = 4, line = 0, at = 13.1, las = 2)
+mtext(paste0("n = ", sum(df_lui['GCDTypeFire']), " (27)"), side = 4, line = 0, at = 16.1, las = 2)
+mtext(paste0("n = ", sum(df_lui['GCDTypeHarvesting']), " (36)"), side = 4, line = 0, at = 15.1, las = 2)
+mtext(paste0("n = ", sum(df_lui['GCDTypeOrganic versus Inorganic']), " (38)"), side = 4, line = 0, at = 14.1, las = 2)
+mtext(paste0("n = ", sum(df_lui['GCDTypeTillage']), " (73)"), side = 4, line = 0, at = 13.1, las = 2)
 
 intce <- nrow(df_lui) - (sum(df_lui['GCDTypeFire']) + sum(df_lui['GCDTypeHarvesting']) + 
                            sum(df_lui['GCDTypeOrganic versus Inorganic']) +
                            sum(df_lui['GCDTypeTillage']))
-mtext(paste0("n = ", intce), side = 4, line = 0, at = 17.1, las = 2)
+mtext(paste0("n = ", intce, " (42)"), side = 4, line = 0, at = 17.1, las = 2)
 
 
 
 # pollution n's
-mtext(paste0("n = ", sum(df_poll['GCDTypePesticides'])), side = 4, line = 0, at = 11.1, las = 2)
+mtext(paste0("n = ", sum(df_poll['GCDTypePesticides']), " (51)"), side = 4, line = 0, at = 11.1, las = 2)
 intce <- nrow(df_poll) - (sum(df_poll['GCDTypePesticides']))
-mtext(paste0("n = ", intce), side = 4, line = 0, at = 10.1, las = 2)
+mtext(paste0("n = ", intce, " (77)"), side = 4, line = 0, at = 10.1, las = 2)
 
 
 
@@ -433,15 +499,15 @@ intce <- nrow(df_nut) - (sum(df_nut['GCDTypeCa-liming + Wood ash']) + sum(df_nut
                            sum(df_nut['GCDTypeOther Organic fertilisers (NOT including compost and Urea)']) +
                            sum(df_nut['GCDTypeMixture']))
 
-mtext(paste0("n = ", intce), side = 4, line = 0, at = 8.1, las = 2)
+mtext(paste0("n = ", intce, " (88)"), side = 4, line = 0, at = 8.1, las = 2)
 
-mtext(paste0("n = ", sum(df_nut['GCDTypeCa-liming + Wood ash'])), side = 4, line = 0, at = 7.1, las = 2)
-mtext(paste0("n = ", sum(df_nut['GCDTypeCompost'])), side = 4, line = 0, at = 6.1, las = 2)
-mtext(paste0("n = ", sum(df_nut['GCDTypeSludge (including Biosolids)'])), side = 4, line = 0, at = 5.1, las = 2)
-mtext(paste0("n = ", sum(df_nut['GCDTypeManure + Slurry'])), side = 4, line = 0, at = 4.1, las = 2)
-mtext(paste0("n = ", sum(df_nut['GCDTypeResidue + Mulch'])), side = 4, line = 0, at = 3.1, las = 2)
-mtext(paste0("n = ", sum(df_nut['GCDTypeOther Organic fertilisers (NOT including compost and Urea)'])), side = 4, line = 0, at = 2.1, las = 2)
-mtext(paste0("n = ", sum(df_nut['GCDTypeMixture'])), side = 4, line = 0, at = 1.1, las = 2)
+mtext(paste0("n = ", sum(df_nut['GCDTypeCa-liming + Wood ash']), " (14)"), side = 4, line = 0, at = 7.1, las = 2)
+mtext(paste0("n = ", sum(df_nut['GCDTypeCompost']), " (11)"), side = 4, line = 0, at = 6.1, las = 2)
+mtext(paste0("n = ", sum(df_nut['GCDTypeSludge (including Biosolids)']), " (10)"), side = 4, line = 0, at = 5.1, las = 2)
+mtext(paste0("n = ", sum(df_nut['GCDTypeManure + Slurry']), " (46)"), side = 4, line = 0, at = 4.1, las = 2)
+mtext(paste0("n = ", sum(df_nut['GCDTypeResidue + Mulch']), " (32)"), side = 4, line = 0, at = 3.1, las = 2)
+mtext(paste0("n = ", sum(df_nut['GCDTypeOther Organic fertilisers (NOT including compost and Urea)']), " (15)"), side = 4, line = 0, at = 2.1, las = 2)
+mtext(paste0("n = ", sum(df_nut['GCDTypeMixture']), " (8)"), side = 4, line = 0, at = 1.1, las = 2)
 
 
 
@@ -497,10 +563,11 @@ dev.off()
 
 ## Taxa graph
 
-mod.gsba.taxa <- readRDS(file = "Models/GSBAMod.rds")
+mod.gsba.taxa <- readRDS(file = "Models/GSBAMod_june2023.rds")
 
 taxa_dat <- allDat[allDat$GSBA %in% c("Acari", "Collembola",  "Earthworms", "Nematodes"),]
-table(taxa_dat$driver, taxa_dat$GSBA)
+
+
 
 t_dat <-predict(mod.gsba.taxa, newmods=rbind(c(0,0,0,0,0, 0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
                                              c(0,0,0,0,0, 1,0,0, 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
@@ -549,11 +616,18 @@ taxaspace <- paste("                          ", taxa)
 # exclude habitat frag and invasives (little data)
 subs <- rev(c(1:4, 13:16, 21:24, 17:20))
 
+# for number of cases
+table(taxa_dat$driver, taxa_dat$GSBA)
+## for number of articles
+with(taxa_dat, tapply(ID, list(GSBA, driver), function(x) length(unique(x))))
+# I regret not soft-coding this
 
 
-jpeg(filename = file.path(FigoutPath, "GSBAMod.jpg"),
-     width = 10, height = 6, units = "in", res = 600)
-pdf(file = file.path(FigoutPath, "GSBAMod.pdf"),
+
+
+#jpeg(filename = file.path(FigoutPath, "GSBAMod.jpg"),
+#     width = 10, height = 6, units = "in", res = 600)
+pdf(file = file.path(FigoutPath, "GSBAMod_2023.pdf"),
        width = 10, height = 6)
 
 
@@ -589,23 +663,26 @@ errbar(x =taxaspace[subs], y = t_dat$pred[subs],
 abline(v=0, lty =2)
 
 
-
-mtext("n = 141", side = 4, line = 0, at = 16.1, las = 2)
-mtext("n = 81", side = 4, line = 0, at = 15.1, las = 2)
-mtext("n = 22", side = 4, line = 0, at = 14.1, las = 2)
-mtext("n = 114", side = 4, line = 0, at = 13.1, las = 2)
-mtext("n = 138", side = 4, line = 0, at = 12.1, las = 2)
-mtext("n = 84", side = 4, line = 0, at = 11.1, las = 2)
-mtext("n = 174", side = 4, line = 0, at = 10.1, las = 2)
-mtext("n = 189", side = 4, line = 0, at = 9.1, las = 2)
-mtext("n = 105", side = 4, line = 0, at = 8.1, las = 2)
-mtext("n = 99", side = 4, line = 0, at = 7.1, las = 2)
-mtext("n = 98", side = 4, line = 0, at = 6.1, las = 2)
-mtext("n = 218", side = 4, line = 0, at = 5.1, las = 2)
-mtext("n = 181", side = 4, line = 0, at = 4.1, las = 2)
-mtext("n = 90", side = 4, line = 0, at = 3.1, las = 2)
-mtext("n = 136", side = 4, line = 0, at = 2.1, las = 2)
-mtext("n = 154", side = 4, line = 0, at = 1.1, las = 2)
+# climate chate
+mtext("n = 146 (33)", side = 4, line = 0, at = 16.1, las = 2)
+mtext("n = 81 (38)", side = 4, line = 0, at = 15.1, las = 2)
+mtext("n = 22 (8)", side = 4, line = 0, at = 14.1, las = 2)
+mtext("n = 109 (41)", side = 4, line = 0, at = 13.1, las = 2)
+# LUI
+mtext("n = 136 (51)", side = 4, line = 0, at = 12.1, las = 2)
+mtext("n = 82 (49)", side = 4, line = 0, at = 11.1, las = 2)
+mtext("n = 174 (76)", side = 4, line = 0, at = 10.1, las = 2)
+mtext("n = 187 (84)", side = 4, line = 0, at = 9.1, las = 2)
+# pollution
+mtext("n = 105 (33)", side = 4, line = 0, at = 8.1, las = 2)
+mtext("n = 99 (41)", side = 4, line = 0, at = 7.1, las = 2)
+mtext("n = 98 (33)", side = 4, line = 0, at = 6.1, las = 2)
+mtext("n = 218 (63)", side = 4, line = 0, at = 5.1, las = 2)
+# nutrient enrichment
+mtext("n = 181 (40)", side = 4, line = 0, at = 4.1, las = 2)
+mtext("n = 90 (40)", side = 4, line = 0, at = 3.1, las = 2)
+mtext("n = 136 (41)", side = 4, line = 0, at = 2.1, las = 2)
+mtext("n = 152 (66)", side = 4, line = 0, at = 1.1, las = 2)
 
 
 # remove abline from top
@@ -667,8 +744,14 @@ dev.off()
 
 #### --------------------------------------------------
 ## MEASUREMENT TYPE
-measurement.mod.1 <- readRDS("Models/MeasurementMod.rds")
+measurement.mod.1 <- readRDS("Models/MeasurementMod_June2023.rds")
 df1 <- as.data.frame(measurement.mod.1$X)
+
+testdf <- as.data.frame(measurement.mod.1$mf.r)
+
+
+measurement_dat <- allDat[which(allDat$UniqueID %in% testdf$UniqueID),]
+
 
 measurementdat <-predict(measurement.mod.1, newmods=rbind(c(0,0,0),
                                                           c(1,0,0),
@@ -678,11 +761,11 @@ measurementdat <-predict(measurement.mod.1, newmods=rbind(c(0,0,0),
 
 slabs <- c("Abundance", "Biomass", "Richness", "Shannon")
 
+tapply(measurement_dat$ID, measurement_dat$Measurement, function(x) length(unique(x)))
 
 
-jpeg(filename = file.path(FigoutPath, "MeasurementMod.jpg"),
-     width = 10, height = 4, units = "in", res = 600)
-
+pdf(file = file.path(FigoutPath, "MeasurementMod.pdf"),
+    width = 10, height = 4)
 
 par(mar=c(4, 8, 1.5, 7))
 errbar(x =slabs, y = measurementdat$pred, 
@@ -691,11 +774,11 @@ errbar(x =slabs, y = measurementdat$pred,
        cex = 2, ylim = c(-1,0))
 abline(v=0, lty =2)
 mtext("Effect size", side = 1, line = 3, cex = 1.5)
-mtext(paste0("n = ", sum(df1['MeasurementBiomass'])), side = 4, line = 0, at = 4.1, las = 2)
-mtext(paste0("n = ", sum(df1['MeasurementRichness'])), side = 4, line = 0, at = 3.1, las = 2)
-mtext(paste0("n = ", sum(df1$MeasurementRichness)), side = 4, line = 0, at = 2.1, las = 2)
+mtext(paste0("n = ", sum(df1['MeasurementShannon']), " (123)"), side = 4, line = 0, at = 4.1, las = 2)
+mtext(paste0("n = ", sum(df1['MeasurementRichness']), " (153)"), side = 4, line = 0, at = 3.1, las = 2)
+mtext(paste0("n = ", sum(df1$MeasurementBiomass), " (124)"), side = 4, line = 0, at = 2.1, las = 2)
 intce <- nrow(df1) - (sum(df1['MeasurementBiomass']) + sum(df1['MeasurementRichness']) +  sum(df1$MeasurementRichness ))
-mtext(paste0("n = ", intce), side = 4, line = 0, at = 1.1, las = 2)
+mtext(paste0("n = ", intce, " (574)"), side = 4, line = 0, at = 1.1, las = 2)
 
 dev.off()
 
@@ -754,10 +837,21 @@ dev.off()
 # Missing stressors
 table(allDat$GCDType, allDat$driver)
 
+## Taxanomic harmonisation table
 
-taxaharmonisation <- as.data.frame(table(allDat$TaxaGroup, allDat$GSBA))
+
+## Small clean up to make my life easier
+# put all first words with capitals
+allDat$TaxaGroup2 <- paste(toupper(substr(allDat$TaxaGroup, 1, 1)), 
+              substr(allDat$TaxaGroup, 2, nchar(allDat$TaxaGroup)), sep="")
+# replace & with 'and'
+allDat$TaxaGroup2 <- gsub("&", "and", allDat$TaxaGroup2)
+
+taxaharmonisation <- as.data.frame(table(allDat$TaxaGroup2, allDat$GSBA))
 taxaharmonisation <-taxaharmonisation[which(taxaharmonisation$Freq > 0),]
-write.csv(taxaharmonisation, "TaxaHarmonisation Table.csv", row.names = FALSE)
+
+
+write.csv(taxaharmonisation, "TaxaHarmonisation Table_June2023Revision.csv", row.names = FALSE)
 
 
 table(allDat$GSBA, allDat$Body.Size)
