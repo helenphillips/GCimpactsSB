@@ -32,7 +32,7 @@ estimates.CI2 <- function(res){
 
 
 ## NUTRIENT ENRICHMENT -------
-hedges <- read.csv("Data/03_Data/HedgesData_cleaned.csv")
+hedges <- read.csv("Data/03_Data/HedgesData_cleaned_June2023.csv")
 
 
 nutri <- hedges[which(hedges$driver == "NutrientEnrichment"),] # 820
@@ -103,7 +103,7 @@ summary(nutri.mod.2)
 anova(nutri.mod.2, btt = "GCD") #  significant
 
 
-saveRDS(nutri.mod.2, file = "Models/nutriMod.rds")
+saveRDS(nutri.mod.2, file = "Models/nutriMod_june2023.rds")
 
 
 ## nut enrich pub bias

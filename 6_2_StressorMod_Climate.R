@@ -33,10 +33,10 @@ estimates.CI2 <- function(res){
 
 ## Climate change
 
-hedges <- read.csv("Data/03_Data/HedgesData_cleaned.csv")
+hedges <- read.csv("Data/03_Data/HedgesData_cleaned_June2023.csv")
 
 
-climate <- hedges[which(hedges$driver == "Climate"),] # 462
+climate <- hedges[which(hedges$driver == "Climate"),] # 
 
 table(climate$GCDType)
 table(climate$GCDType, climate$Measurement)
@@ -48,6 +48,7 @@ climate <- climate[which(climate$GCDType != "Vegetation"),]
 # For now will also remove the precip+temp
 climate <- climate[which(climate$GCDType != "Precipitation+Temp"),]
 climate <- climate[which(climate$GCDType != "UVB Radiation"),]
+climate <- climate[which(climate$GCDType != "Gas - O3"),]
 
 # Checking body size
 table(climate$Body.Size)
@@ -57,6 +58,8 @@ climate <- droplevels(climate[which(climate$Body.Size != "All sizes"),])
 
 table(climate$GCDType, climate$GSBA) # to check for taxonomic model
 # Acari, collembola and nematodes are definitrely fine. Earthworms less so
+
+
 
 climate.mod.1<-rma.mv(
   yi=effect,
@@ -100,17 +103,17 @@ climate.mod.5<-rma.mv(
   method="ML",
   digits=4,
   data=climate)
-anova(climate.mod.5, btt = "GCD") # maybe not significant
+anova(climate.mod.5, btt = "GCD") # significant
 
 
 ## Use climate.mod.5
-saveRDS(climate.mod.5, file = "Models/ClimateMod.rds")
+saveRDS(climate.mod.5, file = "Models/ClimateMod_june2023.rds")
 
 
 qqnorm(residuals(climate.mod.5,type="pearson"),main="QQ plot: residuals")
 qqline(residuals(climate.mod.5,type="pearson"),col="red") # fine
 
-
+summary(climate.mod.5)
 
 
 ## climate pub bias

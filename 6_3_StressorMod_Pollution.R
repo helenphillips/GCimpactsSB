@@ -35,7 +35,7 @@ estimates.CI2 <- function(res){
 
 ### POLLUTION
 
-hedges <- read.csv("Data/03_Data/HedgesData_cleaned.csv")
+hedges <- read.csv("Data/03_Data/HedgesData_cleaned_June2023.csv")
 
 poll <- hedges[which(hedges$driver == "Pollution"),] # 850
 
@@ -120,7 +120,7 @@ table(poll$GCDType, poll$Body.Size)
 
 poll <- droplevels(poll)
 
-saveRDS(poll, file = "Models/pollutionDataFrame.rds")
+saveRDS(poll, file = "Models/pollutionDataFrame_june2023.rds")
 
 
 
@@ -171,7 +171,7 @@ anova(poll.mod.22, btt = "GCD") #   significant
 summary(poll.mod.22)
 
 
-saveRDS(poll.mod.22, file = "Models/pollutionMod.rds")
+saveRDS(poll.mod.22, file = "Models/pollutionMod_june2023.rds")
 
 
 ## pollution pub bias
@@ -261,7 +261,7 @@ table.comparing.captivity.levels <- data.frame(driver = table.comparing.captivit
 ########################
 
 
-## Would the pollutant type make a difference if we accounted for bias?
+## Would the pollutant source make a difference if we accounted for bias?
 publication.bias.model.poll.allin_fakemodel <- rma.mv(
   yi=effect,
   V=var, 

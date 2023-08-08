@@ -41,6 +41,7 @@ DataCleaned$Treatment_SD[which(DataCleaned$ID == 129 & is.na(DataCleaned$Treatme
 ## Which measurements are there that have nas in Sds
 table(DataCleaned$Measurement[which(!(is.na(DataCleaned$Control_mean)) & is.na(DataCleaned$Control_SD))])
 ## That's fine (8 abundance and 1 biomass)
+table(DataCleaned$Measurement[which(!(is.na(DataCleaned$Treatment_mean)) & is.na(DataCleaned$Treatment_SD))])
 
 
 

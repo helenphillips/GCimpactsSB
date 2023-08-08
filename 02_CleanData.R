@@ -28,6 +28,15 @@ dat <- merge(dat, phs, by = "UniqueID", all.x = TRUE)
 
 
 
+
+## To add in Co2 and O3
+dat$GasT2 <- paste0(dat$GCDType, " - ", dat$GasType)
+dat$GCDType[which(dat$GCDType == "Gas")] <- dat$GasT2[which(dat$GCDType == "Gas")]
+
+# check
+dat[grep("Gas", dat$GCDType),]
+
+
 ## CLEAN THE COLUMNS
 tokeep <- c("ID","Case_ID","CaseDescription", "lat_dd", "long_dd", 
 "GCDType","ChangeType",

@@ -33,7 +33,7 @@ estimates.CI2 <- function(res){
 
 
 ## Invasives
-hedges <- read.csv("Data/03_Data/HedgesData_cleaned.csv")
+hedges <- read.csv("Data/03_Data/HedgesData_cleaned_June2023.csv")
 
 invas <- hedges[which(hedges$driver == "Invasives"),] # 188
 
@@ -96,7 +96,7 @@ invas.mod.3<-rma.mv(
   data=invas)
 
 summary(invas.mod.3) # not significant intercapt
-saveRDS(invas.mod.3, file = "Models/invasiveMod.rds")
+saveRDS(invas.mod.3, file = "Models/invasiveMod_june2023.rds")
 
 
 
@@ -150,6 +150,9 @@ publication.bias.model.r.v.1b <-  rma.mv(
 
 summary(publication.bias.model.r.v.1b)
 
+
+
+# Results
 estimates.publication.bias.model.r.v.1 <- estimates.CI(publication.bias.model.invas.allin)
 
 estimates.publication.bias.model.r.v.1b <- estimates.CI(publication.bias.model.r.v.1b)

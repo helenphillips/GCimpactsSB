@@ -33,25 +33,25 @@ estimates.CI2 <- function(res){
 
 
 ## ### THINKING ABOUT OTHER COVARIATES
-hedges <- read.csv("Data/03_Data/HedgesData_cleaned.csv")
+hedges <- read.csv("Data/03_Data/HedgesData_cleaned_June2023.csv")
 
 
 
-mod.gsba <-rma.mv(
-  yi=effect,
-  V=var, 
-  mods=~driver + GSBA, ## 
-  random= list(~1|ID/UniqueID, 
-               ~ 1 | Measurement),
-  struct="CS",
-  method="REML",
-  digits=4,
-  data=hedges)
-
-beep()
-
-summary(mod.gsba)
-anova(mod.gsba, btt = "GSBA") # NOT SIGNIFICANT
+# mod.gsba <-rma.mv(
+#   yi=effect,
+#   V=var, 
+#   mods=~driver + GSBA, ## 
+#   random= list(~1|ID/UniqueID, 
+#                ~ 1 | Measurement),
+#   struct="CS",
+#   method="REML",
+#   digits=4,
+#   data=hedges)
+# 
+# beep()
+# 
+# summary(mod.gsba)
+# anova(mod.gsba, btt = "GSBA") # NOT SIGNIFICANT
 
 
 
@@ -78,7 +78,12 @@ beep()
 summary(mod.gsba.taxa)
 
 
-saveRDS(mod.gsba.taxa, file = "Models/GSBAMod.rds")
+saveRDS(mod.gsba.taxa, file = "Models/GSBAMod_june2023.rds")
+
+
+
+
+
 
 
 
@@ -132,3 +137,43 @@ anova(mod.system2, btt = "driver") #   significant
 
 saveRDS(mod.system2, file = "Models/SystemMod.rds")
 
+
+## kH method
+
+
+## ph
+phdat <- hedges[which(!(is.na(hedges$ph_fixed))),] # 1715
+phdat <- phdat[which(phdat$driver != "HabitatLoss"),] # 1712
+
+
+mod.ph <-rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~driver * ph_fixed, ## 
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=phdat)
+
+anova(mod.ph, btt = ":") #  not significant
+
+
+mod.ph2 <-rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~driver + ph_fixed, ## 
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=phdat)
+
+
+anova(mod.ph2, btt = "ph_fixed") #  not significant
+anova(mod.ph2, btt = "driver") #   significant
+
+
+saveRDS(mod.ph2, file = "Models/pHMod.rds")

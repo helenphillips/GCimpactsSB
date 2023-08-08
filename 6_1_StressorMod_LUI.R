@@ -32,7 +32,7 @@ estimates.CI2 <- function(res){
 
 
 ## LUI -------
-hedges <- read.csv("Data/03_Data/HedgesData_cleaned.csv")
+hedges <- read.csv("Data/03_Data/HedgesData_cleaned_June2023.csv")
 
 lui <- hedges[which(hedges$driver == "LUI"),] 
 
@@ -114,7 +114,7 @@ summary(lui.mod.2)
 
 
 ## final model
-saveRDS(lui.mod.2, file = "Models/LUIMod_redo.rds")
+saveRDS(lui.mod.2, file = "Models/LUIMod_redo_june2023.rds")
 
 
 
