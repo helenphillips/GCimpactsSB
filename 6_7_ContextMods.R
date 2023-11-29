@@ -61,7 +61,60 @@ taxa_dat <- hedges[hedges$GSBA %in% c("Acari", "Collembola",  "Earthworms", "Nem
 table(taxa_dat$driver, taxa_dat$GSBA)
 
 
+## Reviewer commetns: re. using stressors rather than the main drivers
 
+
+table(taxa_dat$GCDType[which(taxa_dat$driver == "Climate")], taxa_dat$GSBA[which(taxa_dat$driver == "Climate")])
+table(taxa_dat$GCDType[which(taxa_dat$driver == "LUI")], taxa_dat$GSBA[which(taxa_dat$driver == "LUI")])
+table(taxa_dat$GCDType[which(taxa_dat$driver == "NutrientEnrichment")], taxa_dat$GSBA[which(taxa_dat$driver == "NutrientEnrichment")])
+table(taxa_dat$GCDType[which(taxa_dat$driver == "Pollution")], taxa_dat$GSBA[which(taxa_dat$driver == "Pollution")])
+
+
+taxa_dat2 <- taxa_dat[which(taxa_dat$GCDType %in% c(
+# climate
+"Gas - CO2",
+"Temperature",
+"WaterAvailability-Drought",
+"WaterAvailability-Flood",
+# lui
+"Fire",
+"Grazing",
+"Harvesting",
+"Organic versus Inorganic",
+"Tillage",
+# nutrient
+"Compost",
+"Manure + Slurry",
+"Other Organic fertilisers (NOT including compost and Urea)",
+"Residue + Mulch",
+"Sludge (including Biosolids)",
+"Synthetic Fertilizers",
+# pollution
+"Metals",
+"Pesticides")),]
+
+
+table(taxa_dat2$GSBA, taxa_dat2$GCDType)
+mod.gsba.taxa_stressor <-rma.mv(
+  yi=effect,
+  V=var, 
+  mods=~ GCDType * GSBA, ## 
+  random= list(~1|ID/UniqueID, 
+               ~ 1 | Measurement),
+  struct="CS",
+  method="REML",
+  digits=4,
+  data=taxa_dat2)
+anova(mod.gsba.taxa_stressor, btt = ":") #  SIGNIFICANT
+
+summary(mod.gsba.taxa_stressor)
+
+saveRDS(mod.gsba.taxa_stressor, file = "Models/GSBAMod_stressors.rds")
+
+
+
+
+## The original model
 mod.gsba.taxa <-rma.mv(
   yi=effect,
   V=var, 

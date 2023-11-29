@@ -3,7 +3,9 @@
 
 setwd("C:/Users/helenp/WORK/GCimpactsSB")
 ## LOAD THE DATA
-dataDir <- "Data/September2022"
+# dataDir <- "Data/September2022"
+dataDir <- "Data/June2023/"
+
 dat <- read.csv(file = file.path(dataDir, "processed", "alldata.csv"))
 
 
@@ -47,9 +49,33 @@ table(allDat2$driver) - table(allDat2$driver[which(allDat2$SoilPH == "")])
  
 ### LAB OR FIELD EXPERIMENT ---------------
 
-meta <- read.csv("Data/February2022/processed/metadata.csv")
+meta <- read.csv(file.path(dataDir, "/processed/metadata.csv"))
 table(meta$SpatialExtent.km2.) # this is the number of papers
 
+meta$ID[which(meta$SpatialExtent.km2. == "")] # 23 papers have no info on spatial extent
+# 424 - field study. Spatial extent = 1 - 10km
+# 467 - field study
+# 664  - field study
+# 690  - field study
+# 801 - field study
+# 1016  - field study
+# 1061 - field study
+# 1063 - field study
+# 1072 - field study
+# 1104 - field study
+# 1108 - field study
+# 1267 - field study
+# 1543 - field study
+# 1648 - field study
+# 1654 - field study
+# 1811 - field study
+# 1916 - field study
+# 2096 - field study
+# 2231 - field study
+# 2715 - field study
+# 2918 - field study
+# 3195 - field study
+# 3386 - field study
 
 
 
@@ -84,3 +110,10 @@ length(which(is.na(dat$Latitude))) # 110
 
 ## I think something can be done with these, so taking them into a new script
 ## (10) to work on
+
+
+
+
+
+## Metric type - I have this somewhere else, but can't remember where
+(2256 / nrow(allDat)) * 100

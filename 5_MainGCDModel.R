@@ -121,7 +121,7 @@ anova(mod.2, btt = "driver") # significant
 
 ## we stick with mod.2
 saveRDS(mod.2, file = "Models/MainMod_rerun_June2023.rds")
-
+# mod.2 <- readRDS(file = "Models/MainMod_rerun_June2023.rds")
 
 
 

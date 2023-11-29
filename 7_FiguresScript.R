@@ -119,7 +119,19 @@ stud <- meta %>%
   summarise(no.stu = n())
 
 
+# Number of studies in USA and China
+stud[which(stud$Country == 'China'),] # 96
+stud[which(stud$Country == 'USA'),] # 100
 
+# Number of cases
+china <- meta$ID[which(meta$Country == "China")]
+chinadat <- allDat[which(allDat$ID %in% china),]
+nrow(chinadat) # 355
+355/3161 * 100 
+usa <- meta$ID[which(meta$Country == "USA")]
+usadat <- allDat[which(allDat$ID %in% usa),]
+nrow(usadat) # 492
+492/3161 * 100
 # harmonize country names
 stud <- stud %>%
   mutate(iso =  countrycode(stud$Country, origin = "country.name", destination = "iso3c")) %>%
@@ -245,9 +257,10 @@ barplot(table(taxadat$Body.Size, taxadat$driver),
         names.arg = c("Climate change", "Land-use \nintensification", "Pollution", "Nutrient \nenrichment", "Invasive \nspecies", "Habitat \nfragmentation"),
         xlab = "",
         ylab = "Number of cases",
-        axes = TRUE)
+        axes = TRUE,
+        col = rocket(4))
 legend("topright", legend = c("All sizes", "Micro-fauna", "Meso-fauna", "Macro-fauna"),
-       fill = gray.colors(4), bty = "n")
+       fill = rocket(4), bty = "n")
 
 
 dev.off()
@@ -590,7 +603,7 @@ t_dat <-predict(mod.gsba.taxa, newmods=rbind(c(0,0,0,0,0, 0,0,0,  0,0,0,0,0,0,0,
                                              
                                              c(0,0,1,0,0, 0,0,0,  0,0,0,0,0,0,0,0,0,0,0,0,0,0,0),
                                              c(0,0,1,0,0, 1,0,0,  0,0,1,0,0,0,0,0,0,0,0,0,0,0,0),
-                                             c(0,0,1,0,0, 0,1,0, 0,0,0,0,0,0,0,1,0,0,0,0,0,0,0),
+                                             c(0,0,1,0,0, 0,1,0,  0,0,0,0,0,0,0,1,0,0,0,0,0,0,0),
                                              c(0,0,1,0,0, 0,0,1,  0,0,0,0,0,0,0,0,0,0,0,0,1,0,0),
                                              # LUI
                                              
